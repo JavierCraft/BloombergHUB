@@ -1,0 +1,349 @@
+{% extends "layout.html" %}
+{% set title = "Sources" %}
+{% set lead = "Semua sumber yang dipakai aplikasi — feed berita, API data publik, dan integrasi — beserta statusnya." %}
+
+{% block body %}
+
+<div class="row c4">
+  <div class="stat hero">
+    <span class="label">Total sources</span>
+    <span class="value">{{ counts.all }}</span>
+    <span class="foot" id="t-all-foot">{{ counts.feed }} feed berita · {{ counts.api }} API data · {{ counts.registry }} integrasi</span>
+  </div>
+  <div class="stat">
+    <span class="label">Usable now</span>
+    <span class="value" id="t-usable" style="color:var(--good)">—</span>
+    <span class="foot" id="t-usable-foot">menjawab pada pengecekan terakhir</span>
+  </div>
+  <div class="stat">
+    <span class="label">News feeds</span>
+    <span class="value">{{ counts.feed }}</span>
+    <span class="foot" id="t-feed-foot">RSS/Atom + Hacker News</span>
+  </div>
+  <div class="stat">
+    <span class="label">Data APIs</span>
+    <span class="value">{{ counts.api }}</span>
+    <span class="foot" id="t-api-foot">harga, data resmi, jadwal, bencana</span>
+  </div>
+</div>
+
+<div class="row c4">
+  <div class="stat">
+    <span class="label">Integrations</span>
+    <span class="value sm">{{ catalog.counts.total }}</span>
+    <span class="foot">pasar, model, data olahraga &amp; budaya</span>
+  </div>
+  <div class="stat">
+    <span class="label">Can move funds</span>
+    <span class="value sm" style="color:var(--critical)">{{ catalog.counts.money_movement }}</span>
+    <span class="foot">terpisah dan terkunci</span>
+  </div>
+  <div class="stat">
+    <span class="label">Problems</span>
+    <span class="value sm" id="t-problem" style="color:var(--serious)">—</span>
+    <span class="foot" id="t-problem-foot">diblokir, dibatasi, atau sedang gangguan</span>
+  </div>
+  <div class="stat">
+    <span class="label">Trading lock</span>
+    <span class="value sm">
+      {% if trading_enabled %}
+      <span class="chip critical"><span class="led"></span>Open</span>
+      {% else %}
+      <span class="chip good"><span class="led"></span>Locked</span>
+      {% endif %}
+    </span>
+    <span class="foot">bawaan: terkunci</span>
+  </div>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>All sources</h2>
+      <div class="sub" id="all-sub">Setiap feed berita, API data, dan integrasi dalam satu tabel. Klik judul kolom untuk mengurutkan.</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <button class="sm" type="button" id="probe">Check all now</button>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="width:170px">
+        <label for="f-type">Type</label>
+        <select id="f-type">
+          <option value="">Semua jenis</option>
+          <option value="feed">Feed berita</option>
+          <option value="api">API data</option>
+          <option value="registry">Integrasi</option>
+        </select>
+      </div>
+      <div class="field" style="width:210px">
+        <label for="f-cat">Category</label>
+        <select id="f-cat"><option value="">Semua kategori</option></select>
+      </div>
+      <div class="field" style="width:170px">
+        <label for="f-status">Status</label>
+        <select id="f-status">
+          <option value="">Semua status</option>
+          <option value="usable">Bisa dipakai</option>
+          <option value="problem">Bermasalah</option>
+          <option value="unchecked">Belum dicek</option>
+        </select>
+      </div>
+    </div>
+    <div id="probe-progress" hidden></div>
+  </div>
+  <div class="body-flush" id="all"></div>
+</section>
+
+<h2 class="section-title">Integrations</h2>
+
+{% for cat_id, cat_label in categories %}
+{% set rows = catalog.sources | selectattr('category', 'equalto', cat_id) | list %}
+{% if rows %}
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>{{ cat_label }}</h2>
+      <div class="sub">{{ rows|length }} integrations</div>
+    </div>
+  </header>
+  <div class="body-flush">
+    <div class="tablewrap table-wide">
+      <table>
+        <colgroup>
+          <col style="width:215px"><col style="width:135px"><col style="width:250px">
+          <col style="width:85px"><col style="width:115px"><col style="width:300px">
+          <col style="width:180px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Source</th><th>Mode</th><th>Upstream</th>
+            <th>Stars</th><th>Updated</th><th>Notes</th><th>Keys required</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in rows %}
+          <tr>
+            <td class="strong">
+              {{ s.label }}
+              {% if s.blocked_here %}<span class="pill alert">blocked</span>{% endif %}
+            </td>
+            <td>
+              {% if s.money_movement %}
+              <span class="chip critical"><span class="led"></span>Execution</span>
+              {% elif s.mode == 'compute' %}
+              <span class="chip good"><span class="led"></span>Compute</span>
+              {% else %}
+              <span class="chip"><span class="led"></span>Read only</span>
+              {% endif %}
+            </td>
+            <td class="repo">
+              <a href="https://github.com/{{ s.upstream }}" target="_blank" rel="noopener">{{ s.upstream }}</a>
+            </td>
+            <td class="num">{{ s.stars if s.stars else '—' }}</td>
+            <td class="muted">{{ s.pushed_at or '—' }}</td>
+            <td class="prose">{{ s.notes or s.verdict }}</td>
+            <td class="muted keys">{{ s.secrets_required | join(', ') or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endfor %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Trading lock</h2>
+      <div class="sub">Satu pintu, tertutup secara bawaan</div>
+    </div>
+  </header>
+  <div class="body" id="trading"></div>
+</section>
+
+<details class="explain">
+  <summary>Dari mana {{ counts.all }} sumber ini, dan bagaimana statusnya ditentukan</summary>
+  <div class="inner">
+    <p><b>Feed berita</b> (<code>src/news/sources.py</code>) — RSS/Atom dari kantor berita, media,
+    lembaga resmi, bank sentral, lab AI, dan komunitas, dikelompokkan per kategori. Setiap feed
+    disimpan dengan TTL sendiri dan judulnya ditulis ke korpus untuk bahan belajar model berita.</p>
+    <p><b>API data</b> (<code>src/datahub/catalog.py</code>) — harga kripto, kurs, emas, data resmi
+    Departemen Keuangan dan BLS Amerika, Bank Dunia, dokumen presiden AS, artikel Wikipedia yang
+    paling dibaca, jadwal liga, jumlah pemain game, gempa BMKG dan USGS, peringatan bencana,
+    peluncuran roket. Masing-masing tampil di halaman sektor yang memakainya.</p>
+    <p><b>Integrasi</b> — sumber yang punya kode khusus: pasar prediksi, model machine learning,
+    data olahraga, pemilu, musik, dan film.</p>
+    <p><b>Status</b> berasal dari pengecekan terakhir. "Check all now" mengambil setiap feed dan API
+    sekali (lewat simpanan, jadi tidak membebani sumbernya) dan mencatat hasilnya. Tanpa pengecekan,
+    status dibaca dari simpanan: sumber yang pernah berhasil diambil dalam tujuh hari terakhir
+    ditandai "Live" beserta umur datanya.</p>
+    <p>Sumber yang dicoba tetapi <b>tidak dipakai</b> — diblokir di jaringan ini, butuh akun, atau
+    tidak lagi menjawab — dicatat beserta alasannya di kedua berkas katalog. Daftar sumber yang sudah
+    tidak dirawat ada di <code>docs/AUDIT_SUMBER_DATA.md</code>.</p>
+  </div>
+</details>
+
+<details class="explain">
+  <summary>Kenapa hanya satu sumber yang boleh menyentuh dana</summary>
+  <div class="inner">
+    <p>Tabel integrasi bukan sekadar dokumentasi — kode aplikasi benar-benar membacanya. Sebelum
+    melayani permintaan data apa pun, aplikasi memeriksa tabel ini dan menolak melayani sumber
+    yang bertanda "bisa transaksi" lewat jalur biasa.</p>
+    <p>Alasannya sederhana: kalau kode yang membaca harga dicampur dengan kode yang memasang
+    pesanan, setiap kesalahan kecil saat membaca berpotensi berubah menjadi pesanan yang tidak
+    disengaja. Karena itu keduanya dipisah, dan hanya satu berkas yang boleh menyimpan kunci.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, load, clear, renderTable } = BH;
+
+const TONE = {
+  live: 'good', ready: 'good', empty: 'warning', rate_limited: 'serious', upstream_down: 'serious',
+  missing_dep: 'warning', no_credential: 'warning', not_cloned: 'warning', blocked: 'critical', unchecked: '',
+};
+const USABLE = new Set(['live', 'ready', 'empty']);
+let inventory = null;
+
+function setTiles(data) {
+  const t = data.totals || {};
+  document.getElementById('t-usable').textContent = String(t.all?.usable ?? '—');
+  document.getElementById('t-usable-foot').textContent =
+    `feed ${t.feed?.usable ?? 0} · API ${t.api?.usable ?? 0} · integrasi ${t.registry?.usable ?? 0} · belum dicek ${t.all?.unchecked ?? 0}`;
+  document.getElementById('t-problem').textContent = String(t.all?.problem ?? '—');
+  const probe = data.last_probe;
+  document.getElementById('t-problem-foot').textContent = probe && probe.finished_at
+    ? `pengecekan penuh terakhir ${BH.stampUTC(probe.finished_at, true)} UTC`
+    : 'belum pernah dicek penuh — tekan Check all now';
+  document.getElementById('t-feed-foot').textContent = `${t.feed?.usable ?? 0} menjawab · ${data.rejected?.feeds ?? 0} ditolak saat seleksi`;
+  document.getElementById('t-api-foot').textContent = `${t.api?.usable ?? 0} menjawab · ${data.rejected?.apis ?? 0} dicoba tapi tidak dipakai`;
+}
+
+function fillCategories(rows) {
+  const select = document.getElementById('f-cat');
+  const chosen = select.value;
+  const cats = [...new Set(rows.map((r) => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  select.replaceChildren(el('option', {value: '', text: 'Semua kategori'}),
+    ...cats.map((c) => el('option', {value: c, text: c})));
+  if (cats.includes(chosen)) select.value = chosen;
+}
+
+function draw() {
+  const host = clear(document.getElementById('all'));
+  if (!inventory) return;
+  const type = document.getElementById('f-type').value;
+  const cat = document.getElementById('f-cat').value;
+  const status = document.getElementById('f-status').value;
+  const rows = inventory.sources.filter((r) => (!type || r.type === type) && (!cat || r.category === cat)
+    && (!status || (status === 'usable' ? USABLE.has(r.status)
+      : status === 'unchecked' ? r.status === 'unchecked' : !USABLE.has(r.status) && r.status !== 'unchecked')));
+  document.getElementById('all-sub').textContent =
+    `${rows.length} dari ${inventory.sources.length} sumber · klik judul kolom untuk mengurutkan · teks di kolom Use for adalah catatan belajar`;
+  const table = el('div');
+  host.append(table);
+  renderTable(table, rows, ['status', 'name', 'type_label', 'category', 'rows', 'detail', 'url'], {
+    name: 'bloomberg-hub-sources', limit: 400,
+    headers: {status: 'Status', name: 'Source · use for', type_label: 'Type', category: 'Category',
+      rows: 'Items', detail: 'Last check', url: 'Link'},
+    cells: {
+      status: (r) => el('span', {class: `chip ${TONE[r.status] || ''}`}, el('span', {class: 'led'}), r.status_label || r.status),
+      name: (r) => el('div', {class: 'src-cell'},
+        el('span', {class: 'strong', text: r.name}),
+        r.good_for ? el('span', {class: 'why', text: r.good_for}) : null,
+        r.caution ? el('span', {class: 'caution', text: r.caution}) : null),
+      type_label: (r) => el('div', {class: 'src-type'}, el('span', {text: r.type_label}),
+        r.kind ? el('span', {class: 'when', text: r.kind}) : null),
+      detail: (r) => el('span', {class: 'muted src-detail', text: r.detail || '—'}),
+    },
+  });
+}
+
+function renderAll(data, meta, host) {
+  inventory = data;
+  setTiles(data);
+  fillCategories(data.sources);
+  draw();
+  showJob(data.probe_job);
+}
+
+const refresh = () => load(document.getElementById('all'), '/api/sources/all', renderAll, {skeletonRows: 10});
+
+let polling = null;
+function showJob(job) {
+  const box = document.getElementById('probe-progress');
+  const button = document.getElementById('probe');
+  clear(box);
+  if (!job) { box.hidden = true; button.disabled = false; return; }
+  box.hidden = false;
+  const running = job.state === 'queued' || job.state === 'running';
+  button.disabled = running;
+  const pctDone = job.total ? Math.round((job.done / job.total) * 100) : 0;
+  const bar = el('div', {class: `bar ${running && !job.total ? 'indeterminate' : ''}`},
+    el('i', {style: `width:${running ? pctDone : 100}%`}));
+  box.append(el('div', {class: 'job'}, bar,
+    el('span', {class: job.state === 'failed' ? 'stale' : 'sub', text: running
+      ? `Mengecek ${job.done}/${job.total} sumber (${pctDone}%) · ${job.stage}${job.message ? ' · ' + job.message : ''} · ${job.elapsed_s}s`
+      : job.state === 'done'
+        ? `Pengecekan selesai dalam ${job.elapsed_s}s · feed ${job.result?.feeds?.live ?? 0}/${job.result?.feeds?.total ?? 0} menjawab · API ${job.result?.apis?.live ?? 0}/${job.result?.apis?.total ?? 0} menjawab`
+        : `Pengecekan gagal: ${job.error || 'tidak diketahui'}`})));
+  if (running && !polling) {
+    polling = setInterval(async () => {
+      const p = await api('/api/sources/probe');
+      const j = p.ok ? p.data : null;
+      showJob(j);
+      if (!j || !(j.state === 'queued' || j.state === 'running')) {
+        clearInterval(polling); polling = null; refresh();
+      }
+    }, 1500);
+  }
+}
+
+document.getElementById('probe').addEventListener('click', async () => {
+  const p = await api('/api/sources/probe', {method: 'POST'});
+  if (!p.ok) { BH.toast(p.error?.message || 'Pengecekan gagal dimulai.'); return; }
+  showJob(p.data);
+});
+['f-type', 'f-cat', 'f-status'].forEach((id) => document.getElementById(id).addEventListener('change', draw));
+refresh();
+
+api('/api/trading/status').then((payload) => {
+  const host = document.getElementById('trading');
+  clear(host);
+  if (!payload.ok) { host.append(BH.errorState(payload.error)); return; }
+  const d = payload.data;
+
+  host.append(el('div', { class: `callout ${d.enabled ? 'bad' : 'info'}` },
+    el('span', { class: 'bar' }),
+    el('div', { class: 'body' },
+      el('b', { text: d.enabled ? 'Lock is open. ' : 'Lock is closed. ' }),
+      document.createTextNode('Alamat Polymarket terblokir dari koneksi ini, jadi meskipun kunci dibuka dan semua kredensial terisi, pesanan tetap tidak akan sampai dari komputer ini.'))));
+
+  const NAMA = {
+    POLY_API_KEY: 'Polymarket API key',
+    POLY_PRIVATE_KEY: 'Wallet private key',
+    SPOTIPY_CLIENT_ID: 'Spotify client ID',
+    SPOTIPY_CLIENT_SECRET: 'Spotify client secret',
+    TMDB_API_KEY: 'TMDb API key',
+    HF_TOKEN: 'HuggingFace token',
+    RIOT_API_KEY: 'Riot API key',
+    ANTHROPIC_API_KEY: 'Anthropic API key',
+    trading_enabled: 'Trading lock open',
+  };
+  const facts = el('dl', { class: 'facts', style: 'margin-top:18px' });
+  for (const [key, value] of Object.entries(d.credentials_set)) {
+    facts.append(el('dt', { text: NAMA[key] || key }));
+    facts.append(el('dd', {}, el('span', { class: `chip ${value ? 'good' : ''}` },
+      el('span', { class: 'led' }), value ? 'set' : 'not set')));
+  }
+  host.append(facts);
+  host.append(el('div', { class: 'muted', style: 'margin-top:14px;font-size:13px',
+    text: 'Tabel ini hanya menunjukkan apakah sebuah kunci sudah diisi — isinya tidak pernah dikirim ke browser dan tidak pernah dicatat di log.' }));
+});
+</script>
+{% endblock %}

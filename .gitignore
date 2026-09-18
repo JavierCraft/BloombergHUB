@@ -1,0 +1,31 @@
+# Kunci dan pengaturan lokal. `.env.example` yang diunggah, bukan `.env`.
+.env
+.env.local
+.env.*.local
+
+# Semua isi data/ dibuat sendiri oleh aplikasi dan bisa dibangun ulang:
+# simpanan API, riwayat harga pasar, dataset dan model ML, buku besar paper test,
+# korpus berita, kumpulan data yang diunduh, dan log server. Totalnya ratusan MB.
+data/
+
+# Hasil uji browser: tangkapan layar dan log geckodriver.
+artifacts/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor dan sistem operasi
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

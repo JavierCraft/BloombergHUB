@@ -1,0 +1,297 @@
+{% extends "layout.html" %}
+{% set title = "Politics" %}
+{% set lead = "Pemilu sela Amerika Serikat jatuh pada 3 November 2026 — kategori dengan perputaran terbesar tahun ini." %}
+
+{% block body %}
+{% set monitor_sector = "politics" %}
+{% include "sector_monitor.html" %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>News monitor</h2>
+      <div class="sub">Seberapa ramai sebuah topik diberitakan, dan seperti apa nadanya</div>
+    </div>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="flex:1;min-width:260px">
+        <label for="g-q">Keyword</label>
+        <input id="g-q" value="midterm election" spellcheck="false">
+        <span class="help">Pakai tanda kutip untuk frasa utuh, atau OR untuk beberapa pilihan</span>
+      </div>
+      <div class="field" style="width:160px">
+        <label for="g-span">Time range</label>
+        <select id="g-span">
+          <option value="7d">Last 7 days</option>
+          <option value="30d" selected>Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+        </select>
+        <span class="help">makin panjang, makin lambat</span>
+      </div>
+      <button id="g-run" type="button">Show</button>
+    </div>
+  </div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Coverage volume</h2>
+        <div class="sub">Persentase dari seluruh pemberitaan dunia</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body"><div id="vol"></div></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Coverage tone</h2>
+        <div class="sub">Di bawah garis nol berarti beritanya cenderung negatif</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body">
+      <div id="tone"></div>
+      <div class="legend">
+        <span class="item"><i class="key" style="background:var(--pole-pos)"></i>positive tone</span>
+        <span class="item"><i class="key" style="background:var(--pole-neg)"></i>negative tone</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Articles</h2>
+      <div class="sub">Judul ditampilkan apa adanya dari sumber aslinya</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="articles"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Race forecasts</h2>
+      <div class="sub">506 balapan, urut dari yang paling ketat — klik satu baris untuk melihat pergerakannya</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="race-filter">
+      <button class="on" data-office="" type="button">All</button>
+      <button data-office="Senate" type="button">Senate</button>
+      <button data-office="Governor" type="button">Governor</button>
+      <button data-office="House" type="button">House</button>
+    </div>
+  </header>
+  <div class="body-flush" id="races"></div>
+</section>
+
+<section class="card" id="race-detail-card" hidden>
+  <header>
+    <div class="grow">
+      <h2 id="race-title">Race detail</h2>
+      <div class="sub">Peluang menang Demokrat per hari. Di atas 50 berarti unggul.</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body"><div id="race-chart"></div></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>ElectIndex 2026 forecast data</h2>
+      <div class="sub">Seluruh bahan mentah sebuah model prakiraan, dipublikasikan terbuka</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="ei-tabs">
+      <button class="on" data-src="/api/politics/electindex/files" type="button">Files</button>
+      <button data-src="/api/politics/electindex/ballot" type="button">Generic ballot</button>
+      <button data-src="/api/politics/electindex/banned" type="button">Banned pollsters</button>
+    </div>
+  </header>
+  <div class="body-flush" id="electindex"></div>
+</section>
+
+<details class="explain">
+  <summary>Kenapa survei nasional yang paling menentukan</summary>
+  <div class="inner">
+    <p>Pertanyaan "partai mana yang akan Anda pilih untuk DPR" adalah satu angka yang paling
+    menentukan harga pasar soal penguasaan DPR. Kumpulan datanya menyediakan survei mentah
+    beserta penilaian mutu tiap lembaga survei, jadi Anda bisa menyusun rata-rata sendiri
+    alih-alih menelan angka jadi.</p>
+    <p>Di dalamnya ada penanda untuk lembaga survei yang pernah memalsukan data. Tab
+    <b>Survei nasional</b> di atas <b>sudah membuang</b> lembaga-lembaga itu. Merata-rata
+    tanpa menyaring sama saja ikut memasukkan angka palsunya.</p>
+  </div>
+</details>
+
+<details class="explain">
+  <summary>Kalau ketiga kartu GDELT berkata "sedang membatasi permintaan"</summary>
+  <div class="inner">
+    <p>Itu bukan kerusakan di aplikasi ini, dan bukan pula kesalahan kata kunci Anda. GDELT
+    menghitung permintaan <b>per alamat IP</b>, dan batasnya jauh lebih ketat daripada yang
+    tertulis di pesannya sendiri.</p>
+    <p>Hasil pengukuran dari koneksi ini pada 11 September 2026: pesan penolakannya berbunyi
+    <i>"limit requests to one every 5 seconds"</i>, tapi tiga permintaan yang diberi jarak
+    <b>tujuh</b> detik pun tetap ditolak semuanya. Baru setelah benar-benar diam sekitar
+    <b>tiga menit</b>, satu permintaan diterima — dan permintaan itu sendiri memakan 37 detik.</p>
+    <p>Yang sudah dilakukan untuk itu: ketiga kartu di atas dimuat <b>berurutan</b>, bukan
+    serentak; sisi peladen memberi jeda tujuh detik antar panggilan sehingga tiga permintaan
+    tidak pernah tiba bersamaan; batas waktunya dinaikkan jadi 75 detik supaya panggilan yang
+    lambat tidak salah dilaporkan sebagai "diblokir"; dan hasil yang berhasil disimpan
+    <b>satu jam</b>. Kalau GDELT sedang menolak, halaman ini menampilkan data tersimpan yang
+    terakhir berhasil, lengkap dengan keterangan umurnya — bukan grafik kosong.</p>
+    <p>Yang perlu Anda lakukan: tunggu beberapa menit lalu tekan Search sekali lagi. Jangan
+    menekannya berkali-kali — tiap penekanan justru memperpanjang jendela penaltinya.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, loadTable, clear, lineChart, toneChart, errorState, skeleton } = BH;
+
+const shortDate = (v) => {
+  const s = String(v || '');
+  return s.length >= 8 ? `${s.slice(6, 8)}/${s.slice(4, 6)}` : s;
+};
+
+async function loadChart(hostId, path, kind, options) {
+  const host = document.getElementById(hostId);
+  clear(host).append(skeleton(3));
+  const payload = await api(path);
+  clear(host);
+  if (!payload.ok) { host.append(errorState(payload.error)); return; }
+  const rows = payload.data || [];
+  if (!rows.length) { host.append(el('div', { class: 'empty', text: 'Tidak ada data pada rentang ini.' })); return; }
+  const points = rows.map((r) => ({ x: shortDate(r.date), y: Number(kind === 'tone' ? r.tone : r.value) }));
+  const box = el('div');
+  host.append(box);
+  (kind === 'tone' ? toneChart : lineChart)(box, points, options);
+}
+
+/* Ketiga kartu ini memukul GDELT, dan GDELT menghitung permintaan per alamat IP.
+   Dimuat berurutan, bukan serentak: kalau ketiganya berangkat bersamaan, semuanya
+   tiba dalam detik yang sama dan ketiganya ditolak sekaligus. Sisi peladen juga
+   memberi jeda antar panggilan; ini pasangannya di sisi peramban, supaya tiga
+   permintaan tidak sekadar antre lama di satu tumpukan. */
+let jalan = 0;
+
+async function run() {
+  const giliran = ++jalan;
+  const q = encodeURIComponent(document.getElementById('g-q').value.trim() || 'midterm election');
+  const span = document.getElementById('g-span').value;
+  const batal = () => giliran !== jalan;   // pencarian baru menggantikan yang lama
+
+  await loadChart('vol', `/api/politics/gdelt/volume?q=${q}&timespan=${span}`, 'volume', {
+    seriesName: 'share of coverage', zeroBase: true,
+    tickFormat: (v) => `${Number(v).toFixed(2)}%`,
+  });
+  if (batal()) return;
+
+  await loadChart('tone', `/api/politics/gdelt/tone?q=${q}&timespan=${span}`, 'tone', {});
+  if (batal()) return;
+
+  await loadTable(document.getElementById('articles'), `/api/politics/gdelt/articles?q=${q}&limit=60`, {
+    name: 'articles',
+    columns: ['seen', 'title', 'domain', 'country', 'url'],
+    headers: { seen: 'Seen', title: 'Title', domain: 'Source', country: 'Country', url: 'Link' },
+  });
+}
+
+document.getElementById('g-run').addEventListener('click', run);
+document.getElementById('g-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+
+const eiGroup = document.getElementById('ei-tabs');
+const eiHost = document.getElementById('electindex');
+eiGroup.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button) return;
+  eiGroup.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+  loadTable(eiHost, button.dataset.src, { name: 'electindex', limit: 300 });
+});
+loadTable(eiHost, '/api/politics/electindex/files', {
+  name: 'electindex', limit: 3000,
+  columns: ['name', 'folder', 'mb'],
+  headers: { name: 'File', folder: 'Folder', mb: 'Size (MB)' },
+});
+
+/* ------------------------------------------------------- prakiraan balapan */
+const raceHost = document.getElementById('races');
+const raceFilter = document.getElementById('race-filter');
+const raceCard = document.getElementById('race-detail-card');
+let semuaBalapan = [];
+
+const RACE_COLUMNS = ['race', 'state', 'office', 'rating', 'dem_prob', 'rep_prob', 'margin', 'as_of'];
+const RACE_HEADERS = {
+  race: 'Race', state: 'State', office: 'Office', rating: 'Rating',
+  dem_prob: 'Dem %', rep_prob: 'Rep %', margin: 'Margin', as_of: 'As of',
+};
+
+function gambarBalapan() {
+  const pilih = raceFilter.querySelector('button.on')?.dataset.office || '';
+  /* "House" cocok dengan House 1 sampai House 52, jadi dibandingkan sebagai awalan.
+     Senate dan Governor namanya utuh, dan awalan tetap cocok untuk keduanya. */
+  const rows = pilih ? semuaBalapan.filter((r) => String(r.office).startsWith(pilih)) : semuaBalapan;
+  BH.renderTable(raceHost, rows, RACE_COLUMNS, {
+    name: 'races', limit: 600, headers: RACE_HEADERS,
+    signed: ['margin'], sort: null,
+    emptyText: 'Tidak ada balapan pada saringan ini.',
+  });
+}
+
+raceFilter.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button) return;
+  raceFilter.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+  gambarBalapan();
+});
+
+/* Satu penangan di induknya, bukan satu per baris: tabelnya digambar ulang tiap
+   kali saringan berubah, dan penangan per baris akan ikut hilang tiap kali itu. */
+raceHost.addEventListener('click', (e) => {
+  const sel = e.target.closest('tbody tr')?.firstElementChild?.textContent?.trim();
+  if (sel) bukaBalapan(sel);
+});
+
+async function bukaBalapan(kode) {
+  raceCard.hidden = false;
+  document.getElementById('race-title').textContent = kode;
+  const host = document.getElementById('race-chart');
+  clear(host).append(skeleton(3));
+
+  const payload = await api(`/api/politics/electindex/race?code=${encodeURIComponent(kode)}`);
+  clear(host);
+  if (!payload.ok) { host.append(errorState(payload.error)); return; }
+
+  const points = (payload.data || []).map((r) => ({
+    x: String(r.date).slice(5), y: Number(r.dem_prob),
+  }));
+  const box = el('div');
+  host.append(box);
+  lineChart(box, points, {
+    seriesName: 'peluang menang Demokrat',
+    tickFormat: (v) => `${Number(v).toFixed(0)}%`,
+  });
+  raceCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+api('/api/politics/electindex/races').then((payload) => {
+  if (!payload.ok) { clear(raceHost).append(errorState(payload.error)); return; }
+  semuaBalapan = payload.data || [];
+  gambarBalapan();
+});
+
+BH.monitor.controls(document.getElementById('g-q'), () => {run(); document.querySelector('[data-sector-monitor]').dispatchEvent(new CustomEvent('monitor-query', {detail:document.getElementById('g-q').value}));}, 'politics');
+setInterval(() => {if (!document.hidden) run();}, 60000);
+run();
+</script>
+{% endblock %}

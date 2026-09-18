@@ -1,0 +1,521 @@
+{% extends "layout.html" %}
+{% set title = "News & Markets" %}
+{% set lead = "Kabar terkini disandingkan dengan harga pasar prediksi dari Manifold dan Polymarket." %}
+
+{% block body %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Search news</h2>
+      <div class="sub">Kosongkan untuk melihat kabar utama hari ini</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="flex:1;min-width:260px">
+        <label for="q">Keyword</label>
+        <input id="q" placeholder="election, ukraine, bitcoin, AI" spellcheck="false">
+        <span class="help">Dicari sekaligus ke berita dan ke pasar prediksi</span>
+      </div>
+      <div class="field" style="width:210px">
+        <label for="cat">Category</label>
+        <select id="cat">
+          <option value="" selected>Campuran utama</option>
+        </select>
+        <span class="help" id="cat-help">feed pilihan dari 16 kategori</span>
+      </div>
+      <div class="field" style="width:190px">
+        <label for="auto">Auto refresh</label>
+        <select id="auto">
+          <option value="0">Off</option>
+          <option value="15" selected>Live — every 15 seconds</option>
+          <option value="30">Every 30 seconds</option>
+          <option value="60">Every 1 minute</option>
+          <option value="300">Every 5 minutes</option>
+        </select>
+        <span class="help" id="countdown">—</span>
+      </div>
+      <button id="load" type="button">Load</button>
+    </div>
+  </div>
+</section>
+
+<div class="row c2" style="grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)">
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Latest headlines</h2>
+        <div class="sub" id="sub-news">157 feed teruji + Hacker News — mengalir masuk sendiri</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body monitor-scroll" id="news" tabindex="0" aria-label="Berita terbaru" aria-live="polite"></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Related markets</h2>
+        <div class="sub">Klik salah satu untuk melihat buku pesanannya</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body" id="markets"></div>
+  </section>
+
+</div>
+
+<section class="card" id="book-card">
+  <header>
+    <div class="grow">
+      <h2>Order book</h2>
+      <div class="sub" id="sub-book">Pilih satu pasar di sebelah kanan untuk melihat isinya</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <button class="quiet sm" type="button" id="refresh-book" hidden>Refresh</button>
+  </header>
+  <div class="body" id="book"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Prediction markets</h2>
+      <div class="sub">Polymarket, atau Limitless (USDC) dan Manifold (uang main) saat Polymarket diblokir · odds, EV, IEP/IEV, model ML · diperbarui otomatis</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body" id="polymarket"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>News ML</h2>
+      <div class="sub">Cerita yang sedang diliput banyak sumber, dan kata yang paling cepat naik — dari korpus berita yang tersimpan</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="ml-tabs">
+      <button class="on" data-view="digest" type="button">Stories</button>
+      <button data-view="trends" type="button">Rising terms</button>
+    </div>
+    <select id="ml-hours" aria-label="Rentang waktu" style="width:120px">
+      <option value="6">6 jam</option>
+      <option value="24" selected>24 jam</option>
+      <option value="72">3 hari</option>
+    </select>
+  </header>
+  <div class="body-flush" id="ml-news"></div>
+</section>
+
+<section class="card" data-datahub="news">
+  <header>
+    <div class="grow">
+      <h2>Public data</h2>
+      <div class="sub">Harga, kurs, data resmi AS dan Indonesia, perhatian publik, bencana — sumber resolusi banyak pasar</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body" data-datahub-body></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Source catalog</h2>
+      <div class="sub" id="catalog-sub">Semua sumber berita, kategorinya, dan kegunaannya untuk belajar riset pasar prediksi</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="catalog"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Text file cache</h2>
+      <div class="sub">Setiap pengambilan kabar ditulis ke <code>data/news</code> supaya tetap terbaca saat sumbernya mati</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <button class="quiet sm" type="button" id="refresh-files">Refresh</button>
+  </header>
+  <div class="body-flush" id="files"></div>
+</section>
+
+<details class="explain">
+  <summary>Sumber harga dan batas pembaruan</summary>
+  <div class="inner"><p>Related markets dan Order book berasal dari Manifold. Panel Polymarket mengambil data Gamma secara terpisah. Sumbernya tidak saling menggantikan.</p><p>Latest headlines mengalir masuk: tiap 15 detik panel menanyakan sumber lalu <b>menambahkan judul baru di atas</b> tanpa menggambar ulang daftarnya, jadi posisi baca dan gulir tetap. Judul yang baru tiba ditandai sebentar. Related markets, Order book, dan Polymarket ikut diperbarui pada irama yang sama; isinya dipertahankan saat pembaruan gagal. Cache sisi peladen tetap 30 detik, mengikuti keterlambatan sumber. Jika sumber gagal, status kegagalan atau usia data lama ditampilkan. Harga outcome adalah probabilitas tersirat pasar, bukan persentase jumlah trader.</p></div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, load, loadTable, clear, errorState, skeleton, icon, ICONS } = BH;
+
+let selectedMarket = null;
+let timer = null;
+let secondsLeft = 0;
+
+/* Waktu tampil sebagai jarak dari sekarang — "3 min ago" lebih cepat dipahami
+   daripada cap waktu penuh, dan itu yang penting untuk kabar. Menerima teks ISO
+   (dari RSS) maupun angka milidetik (dari Manifold). */
+function timeAgo(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const t = typeof value === 'number' ? value : new Date(value).getTime();
+  if (!Number.isFinite(t) || t <= 0) return '';
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 90) return 'just now';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+}
+
+function renderMarkets(data, meta, target) {
+  const rows = Array.isArray(data) ? data : (data.manifold || []);
+  if (!Array.isArray(data) && data.failed && data.failed.length) {
+    target.append(el('div', { class: 'stale' }, icon(ICONS.alert),
+      el('span', { text: data.failed.map((f) => `${f.source}: ${f.reason}`).join(' · ') })));
+  }
+  if (!rows.length) {
+    target.append(el('div', { class: 'empty', text: 'Belum ada pasar prediksi untuk topik ini.' }));
+    return;
+  }
+
+  const box = el('div', { class: 'row', style: 'gap:12px' });
+  for (const m of rows) {
+    const pct = Math.round((m.probability || 0) * 100);
+    const card = el('button', {
+      class: 'pasar-kartu', type: 'button',
+      onclick: () => { selectMarket(m, card); },
+    });
+    card.append(el('div', { class: 'tanya', text: m.question || '' }));
+    card.append(el('div', { class: 'angka' },
+      el('span', { class: 'prob', text: m.probability_pct || '—' }),
+      el('span', { class: 'kecil', text: `volume ${BH.compact(m.volume)}` }),
+      el('span', { class: 'kecil', text: `liquidity ${BH.compact(m.liquidity)}` })));
+    card.append(el('div', { class: 'meter' }, el('i', { style: `width:${pct}%` })));
+    box.append(card);
+  }
+  target.append(box);
+}
+
+function selectMarket(m, card) {
+  selectedMarket = m;
+  document.querySelectorAll('.pasar-kartu').forEach((k) => k.classList.toggle('on', k === card));
+  document.getElementById('sub-book').textContent = m.question || '';
+  document.getElementById('refresh-book').hidden = false;
+  loadBook();
+  document.getElementById('book-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function bookSide(title, colour, rows, max, kind) {
+  const box = el('div', { class: `sisi ${kind}` });
+  box.append(el('h4', {}, el('i', { style: `background:${colour}` }), title));
+  if (!rows.length) {
+    box.append(el('div', { class: 'buku-kosong', text: 'Tidak ada pesanan menunggu di sisi ini.' }));
+    return box;
+  }
+  for (const r of rows) {
+    const width = max > 0 ? Math.max(4, Math.round((r.size / max) * 100)) : 0;
+    box.append(el('div', { class: 'baris' },
+      el('span', { class: 'isian', style: `width:${width}%` }),
+      el('span', { class: 'harga', text: r.price_pct }),
+      el('span', { class: 'pesanan', text: `${r.orders} orders` }),
+      el('span', { class: 'jumlah', text: BH.compact(r.size) })));
+  }
+  return box;
+}
+
+function renderBook(data, meta, target) {
+  const b = data.book;
+  const m = data.market;
+
+  target.append(el('div', { class: 'row c4' },
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Probability' }),
+      el('span', { class: 'value', text: m.probability_pct || '—' }),
+      el('span', { class: 'foot', text: 'menurut pasar saat ini' })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Resting orders' }),
+      el('span', { class: 'value sm', text: String(b.resting_orders) }),
+      el('span', { class: 'foot', text: `senilai ${BH.compact(b.resting_value)}` })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Volume' }),
+      el('span', { class: 'value sm', text: BH.compact(m.volume) }),
+      el('span', { class: 'foot', text: `liquidity ${BH.compact(m.liquidity)}` })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Recent trades' }),
+      el('span', { class: 'value sm', text: String(data.trades.length) }),
+      el('span', { class: 'foot', text: 'yang berhasil diambil' }))));
+
+  const max = Math.max(1, ...b.bids.map((r) => r.size), ...b.asks.map((r) => r.size));
+  const book = el('div', { class: 'buku', style: 'margin-top:18px' });
+  book.append(bookSide('Bids', 'var(--good)', b.bids, max, 'beli'));
+  book.append(bookSide('Asks', 'var(--critical)', b.asks, max, 'jual'));
+  target.append(book);
+
+  if (b.best_bid !== null && b.best_ask !== null) {
+    target.append(el('div', { class: 'spread' },
+      el('span', { text: 'Best bid' }), el('b', { text: `${(b.best_bid * 100).toFixed(1)}%` }),
+      el('span', { text: '·  spread' }), el('b', { text: b.spread_pct }),
+      el('span', { text: '·  best ask' }), el('b', { text: `${(b.best_ask * 100).toFixed(1)}%` })));
+  }
+
+  target.append(el('div', { class: 'callout', style: 'margin-top:4px' },
+    el('span', { class: 'bar' }), el('div', { class: 'body', text: b.note })));
+
+  if (b.iev && BH.ml) {
+    target.append(el('h3', { text: 'IEP / IEV', style: 'margin:22px 0 4px' }));
+    const ievHost = el('div', { class: 'iev-block' });
+    BH.ml.renderIev(b.iev, ievHost);
+    target.append(ievHost);
+  }
+
+  target.append(el('h3', { text: 'Recent trades', style: 'margin:22px 0 10px' }));
+  const table = el('div');
+  BH.renderTable(table, data.trades.map((t) => ({
+    time: timeAgo(t.time),
+    trader: t.trader,
+    outcome: t.outcome === 'YES' ? 'Yes' : 'No',
+    size: t.size,
+    price_after: t.price_after !== null ? `${(t.price_after * 100).toFixed(1)}%` : '—',
+    move_pp: t.move_pp,
+    via_api: t.via_api ? 'bot' : 'human',
+  })), ['time', 'trader', 'outcome', 'size', 'price_after', 'move_pp', 'via_api'], {
+    name: 'trades', signed: ['move_pp'], mono: ['trader'],
+    headers: {
+      time: 'Time', trader: 'Trader', outcome: 'Outcome', size: 'Size',
+      price_after: 'Price after', move_pp: 'Move (pp)', via_api: 'Via',
+    },
+    emptyText: 'Belum ada transaksi yang tercatat di pasar ini.',
+  });
+  target.append(table);
+}
+
+// ------------------------------------------------------------------ loaders
+
+const term = () => document.getElementById('q').value.trim();
+
+/* Headlines are a stream, not a table: `stream` keeps the list and prepends
+   what is new, so the panel updates without throwing away what you are
+   reading. The two market panels still redraw, but `BH.load` retains their
+   content and open sections between ticks instead of flashing a skeleton. */
+const category = () => document.getElementById('cat').value;
+
+const stream = BH.monitor.liveStream(document.getElementById('news'), () => {
+  const qs = new URLSearchParams({ limit: '50' });
+  const q = term();
+  if (q) qs.set('q', q);
+  if (category()) qs.set('category', category());
+  return `/api/news?${qs}`;
+}, { every: 15000 });
+
+// ---------------------------------------------------------------- news ML
+let mlView = 'digest';
+
+function renderStories(data, meta, target) {
+  if (!data || Array.isArray(data)) { target.append(el('div', { class: 'empty', text: 'Belum ada data.' })); return; }
+  target.append(el('p', { class: 'sub', style: 'padding:12px 18px 0',
+    text: `${data.headlines_considered} judul dalam ${data.hours} jam terakhir · ${data.stories.length} cerita dari minimal dua judul` }));
+  if (!data.stories.length) {
+    target.append(el('div', { class: 'empty', text: 'Belum ada cerita yang diliput lebih dari satu judul di rentang ini. Korpus terisi seiring feed diambil.' }));
+  }
+  for (const s of data.stories) {
+    const box = el('div', { class: 'story' });
+    box.append(el('a', { class: 'title', href: /^https?:/.test(s.url || '') ? s.url : '#', target: '_blank', rel: 'noopener', text: s.title }));
+    box.append(el('div', { class: 'meta' },
+      el('span', { class: 'pill', text: `${s.size} judul` }),
+      el('span', { class: 'pill', text: `${s.source_count} sumber` }),
+      el('span', { class: 'pill', text: `nada ${s.tone_label}` }),
+      el('span', { text: s.last_seen ? `terakhir ${BH.ml.timeAgo(s.last_seen)}` : '' }),
+      el('span', { text: (s.terms || []).join(' · ') })));
+    box.append(el('p', { class: 'sub', text: s.summary }));
+    const more = el('details', {}, el('summary', { text: `Judul dari ${s.sources.slice(0, 4).join(', ')}${s.sources.length > 4 ? '…' : ''}` }));
+    const list = el('div', { class: 'berita' });
+    for (const h of s.headlines) {
+      list.append(el('a', { class: 'item', href: /^https?:/.test(h.url || '') ? h.url : '#', target: '_blank', rel: 'noopener' },
+        el('div', { class: 'judul', text: h.title }),
+        el('div', { class: 'meta' }, el('span', { class: 'sumber', text: h.source || '' }), el('span', { text: BH.ml.timeAgo(h.time) }))));
+    }
+    more.append(list);
+    box.append(more);
+    target.append(box);
+  }
+  target.append(el('p', { class: 'sub', style: 'padding:12px 18px', text: data.note }));
+}
+
+function renderTerms(data, meta, target) {
+  if (!data || Array.isArray(data)) { target.append(el('div', { class: 'empty', text: 'Belum ada data.' })); return; }
+  target.append(el('p', { class: 'sub', style: 'padding:12px 18px 0',
+    text: `${data.recent_headlines} judul terbaru lawan ${data.baseline_headlines} judul pembanding` }));
+  const table = el('div');
+  target.append(table);
+  BH.renderTable(table, data.terms.map((t) => ({
+    term: t.term, headlines: t.headlines, sources: t.sources, previous: t.previous,
+    share_pct: t.share_pct, growth: t.growth, example: (t.examples[0] || {}).title || '',
+  })), ['term', 'headlines', 'sources', 'previous', 'share_pct', 'growth', 'example'], {
+    name: 'rising-terms',
+    headers: { term: 'Term', headlines: 'Headlines now', sources: 'Sources', previous: 'Before',
+      share_pct: 'Share %', growth: 'Growth ×', example: 'Example headline' },
+    cells: { term: (r) => el('button', { type: 'button', class: 'quiet sm', text: r.term,
+      onclick: () => { document.getElementById('q').value = r.term; loadNews(); } }) },
+    emptyText: 'Belum ada kata yang naik dengan jelas di rentang ini.',
+  });
+  target.append(el('p', { class: 'sub', style: 'padding:12px 18px', text: data.note }));
+}
+
+function loadNewsMl() {
+  const qs = new URLSearchParams({ hours: document.getElementById('ml-hours').value });
+  if (category()) qs.set('category', category());
+  const host = document.getElementById('ml-news');
+  if (mlView === 'digest') load(host, `/api/news/ml/digest?${qs}`, renderStories, { skeletonRows: 5 });
+  else load(host, `/api/news/ml/trends?${qs}`, renderTerms, { skeletonRows: 5 });
+}
+
+document.getElementById('ml-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mlView = b.dataset.view;
+  document.querySelectorAll('#ml-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  loadNewsMl();
+});
+document.getElementById('ml-hours').addEventListener('change', loadNewsMl);
+
+// ------------------------------------------------------------- catalog
+function renderCatalog(data, meta, target) {
+  if (!data || Array.isArray(data)) return;
+  const select = document.getElementById('cat');
+  if (select.options.length <= 1) {
+    for (const c of data.categories) {
+      select.append(el('option', { value: c.code, text: `${c.label} · ${c.feeds}` }));
+    }
+  }
+  document.getElementById('catalog-sub').textContent =
+    `${data.total} sumber, diuji dari koneksi ini pada ${data.probed_at} · ${data.rejected.length} kelompok ditolak beserta alasannya`;
+  target.append(el('div', { class: 'callout info', style: 'margin:14px 18px' }, el('span', { class: 'bar' }),
+    el('div', { class: 'body', text: data.note })));
+  const table = el('div');
+  target.append(table);
+  BH.renderTable(table, data.feeds.map((f) => ({
+    name: f.name, category: f.category_label, kind: f.kind, lang: f.lang, core: f.core ? 'ya' : '',
+    searchable: f.searchable ? 'ya' : '', good_for: f.good_for, caution: f.caution || '', url: f.url,
+  })), ['name', 'category', 'kind', 'lang', 'good_for', 'caution', 'core', 'searchable', 'url'], {
+    name: 'news-catalog', limit: 400,
+    headers: { name: 'Source', category: 'Category', kind: 'Kind', lang: 'Lang', good_for: 'Good for',
+      caution: 'Caution', core: 'Default mix', searchable: 'Keyword search', url: 'Feed' },
+  });
+  const rejected = el('details', { class: 'explain', style: 'margin:0 18px 16px' },
+    el('summary', { text: 'Sumber yang diuji tapi tidak dipasang' }));
+  const inner = el('div', { class: 'inner' });
+  for (const r of data.rejected) inner.append(el('p', {}, el('b', { text: `${r.source}: ` }), r.reason));
+  rejected.append(inner);
+  target.append(rejected);
+  const kinds = el('details', { class: 'explain', style: 'margin:0 18px 16px' },
+    el('summary', { text: 'Jenis sumber — dan kenapa sumber resmi menentukan penyelesaian' }));
+  const kindsInner = el('div', { class: 'inner' });
+  for (const [k, v] of Object.entries(data.kinds)) kindsInner.append(el('p', {}, el('b', { text: `${k}: ` }), v));
+  kinds.append(kindsInner);
+  target.append(kinds);
+}
+
+document.getElementById('cat').addEventListener('change', () => {
+  const opt = document.getElementById('cat').selectedOptions[0];
+  document.getElementById('cat-help').textContent = category() ? `hanya ${opt.textContent}` : 'feed pilihan dari 16 kategori';
+  stream.tick();
+  loadNewsMl();
+});
+
+function loadMarkets() {
+  const q = term();
+  load(document.getElementById('polymarket'),
+    '/api/markets/polymarket?q=' + encodeURIComponent(q), BH.monitor.markets);
+  load(document.getElementById('markets'),
+    q ? `/api/markets/related?q=${encodeURIComponent(q)}` : '/api/markets/search?limit=10',
+    renderMarkets, { skeletonRows: 4 });
+}
+
+function loadNews() {
+  stream.tick();
+  loadMarkets();
+}
+
+function loadBook() {
+  if (!selectedMarket) return;
+  load(document.getElementById('book'), `/api/markets/book/${selectedMarket.id}`,
+    renderBook, { skeletonRows: 5 });
+}
+
+function loadFiles() {
+  load(document.getElementById('files'), '/api/news/files', (data, meta, target) => {
+    target.append(el('div', { class: 'callout', style: 'margin:14px 18px' },
+      el('span', { class: 'bar' }),
+      el('div', { class: 'body' },
+        el('b', { text: `${data.file_count} berkas · ${BH.compact(data.total_bytes)} byte. ` }),
+        document.createTextNode(`Tersimpan di ${data.folder}`))));
+    const table = el('div');
+    BH.renderTable(table, data.files, ['name', 'bytes', 'modified'], {
+      name: 'cache-files',
+      headers: { name: 'File', bytes: 'Bytes', modified: 'Last written' },
+      emptyText: 'Belum ada berkas — muat kabar dulu.',
+    });
+    target.append(table);
+  });
+}
+
+/* Tautan langsung: /news?m=<id pasar> membuka buku pesanannya begitu halaman
+   siap. Ini yang dipakai hasil pencarian untuk melompat ke satu pasar. */
+function openFromUrl() {
+  const id = new URLSearchParams(location.search).get('m');
+  if (!id) return;
+  selectedMarket = { id };
+  document.getElementById('sub-book').textContent = 'Memuat pasar dari tautan…';
+  document.getElementById('refresh-book').hidden = false;
+  load(document.getElementById('book'), `/api/markets/book/${encodeURIComponent(id)}`,
+    (data, meta, target) => {
+      document.getElementById('sub-book').textContent = data.market.question || '';
+      selectedMarket = data.market;
+      renderBook(data, meta, target);
+    }, { skeletonRows: 5 });
+}
+
+function setAutoRefresh() {
+  clearInterval(timer);
+  const every = parseInt(document.getElementById('auto').value, 10);
+  const label = document.getElementById('countdown');
+  stream.every(every * 1000);
+  if (!every) { label.textContent = 'pembaruan otomatis mati'; return; }
+  secondsLeft = every;
+  timer = setInterval(() => {
+    secondsLeft -= 1;
+    if (secondsLeft <= 0) {
+      secondsLeft = every;
+      if (!document.hidden) { loadMarkets(); if (selectedMarket) loadBook(); }
+    }
+    label.textContent = `pasar diperbarui dalam ${secondsLeft}s · berita mengalir langsung`;
+  }, 1000);
+}
+
+document.getElementById('load').addEventListener('click', () => { loadNews(); setAutoRefresh(); });
+document.getElementById('q').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { loadNews(); setAutoRefresh(); }
+});
+document.getElementById('auto').addEventListener('change', setAutoRefresh);
+document.getElementById('refresh-book').addEventListener('click', loadBook);
+document.getElementById('refresh-files').addEventListener('click', loadFiles);
+
+document.getElementById('book').append(
+  el('div', { class: 'empty', text: 'Pilih satu pasar di atas untuk melihat buku pesanannya.' }));
+
+loadMarkets();
+loadFiles();
+openFromUrl();
+load(document.getElementById('catalog'), '/api/news/catalog', renderCatalog, { skeletonRows: 6 });
+loadNewsMl();
+BH.monitor.controls(document.getElementById('q'), loadNews);
+setAutoRefresh();
+</script>
+{% endblock %}

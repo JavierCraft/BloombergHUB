@@ -1,0 +1,222 @@
+{% extends "layout.html" %}
+{% set title = "Backtest" %}
+{% set lead = "Ukur dulu ketepatan perkiraan Anda. Untung-rugi belakangan." %}
+
+{% block body %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Run a backtest</h2>
+      <div class="sub">Satu baris untuk satu taruhan yang hasilnya sudah diketahui</div>
+    </div>
+  </header>
+  <div class="body">
+    <div class="controls" style="margin-bottom:16px">
+      <div class="field" style="width:160px">
+        <label for="b-bankroll">Starting bankroll</label>
+        <input id="b-bankroll" type="number" value="1000" step="100">
+        <span class="help">dalam dolar</span>
+      </div>
+      <div class="field" style="width:190px">
+        <label for="b-kelly">Stake size</label>
+        <select id="b-kelly">
+          <option value="0.25">Quarter Kelly</option>
+          <option value="0.5" selected>Half Kelly</option>
+          <option value="1">Full Kelly</option>
+        </select>
+        <span class="help">seberapa besar porsi modal</span>
+      </div>
+      <div class="field" style="width:180px">
+        <label for="b-cap">Max stake</label>
+        <input id="b-cap" type="number" value="5" step="1" min="0.5" max="100">
+        <span class="help">persen dari modal</span>
+      </div>
+      <button id="b-sample" class="quiet" type="button">Load sample</button>
+      <button id="b-run" type="button">Run</button>
+    </div>
+
+    <div class="field">
+      <label for="b-bets">Settled bets</label>
+      <textarea id="b-bets" spellcheck="false" placeholder="perkiraan, harga, hasil, keterangan"></textarea>
+      <span class="help">Empat kolom dipisah koma: perkiraan Anda (0–1), harga pasar (0–1), hasil (1 menang / 0 kalah), dan keterangan bebas.</span>
+    </div>
+  </div>
+</section>
+
+<div id="out"></div>
+
+<details class="explain">
+  <summary>Kenapa ketepatan lebih penting daripada untung</summary>
+  <div class="inner">
+    <p>Dalam jangka pendek, model yang kebetulan beruntung dan model yang benar-benar tepat
+    menghasilkan grafik keuntungan yang mirip. Bedanya baru kelihatan setelah ratusan taruhan
+    — dan saat itu yang beruntung sudah kehabisan modal.</p>
+    <p><b>Skor ketepatan</b> mengukur hal yang berbeda dari untung-rugi: kalau Anda bilang 70%,
+    apakah kejadian itu benar-benar terjadi sekitar 70% dari waktu? Angka yang lebih kecil
+    berarti lebih tepat. Sebagai pembanding, angka "asal tebak" ikut ditampilkan.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, clear, renderTable, errorState, skeleton, lineChart, reliabilityChart } = BH;
+
+document.getElementById('b-sample').addEventListener('click', () => {
+  const lines = [];
+  let seed = 20260906;
+  const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  for (let i = 0; i < 150; i += 1) {
+    const prob = 0.2 + rand() * 0.6;
+    const price = Math.max(0.03, Math.min(0.97, prob + (rand() - 0.5) * 0.12));
+    lines.push(`${prob.toFixed(3)}, ${price.toFixed(3)}, ${rand() < prob ? 1 : 0}, market ${i + 1}`);
+  }
+  document.getElementById('b-bets').value = lines.join('\n');
+});
+
+function parseBets(text) {
+  const bets = [];
+  for (const [i, raw] of text.split('\n').entries()) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const parts = line.split(',').map((p) => p.trim());
+    if (parts.length < 3) throw new Error(`Baris ${i + 1} kurang kolom. Butuh minimal tiga: perkiraan, harga, hasil.`);
+    bets.push({
+      prob: parseFloat(parts[0]),
+      price: parseFloat(parts[1]),
+      outcome: parseInt(parts[2], 10),
+      label: parts.slice(3).join(', ') || `bet ${bets.length + 1}`,
+    });
+  }
+  return bets;
+}
+
+document.getElementById('b-run').addEventListener('click', async () => {
+  const host = document.getElementById('out');
+  clear(host).append(skeleton(4));
+
+  let bets;
+  try {
+    bets = parseBets(document.getElementById('b-bets').value);
+  } catch (err) {
+    clear(host).append(errorState({ code: 'BAD_REQUEST', message: err.message }));
+    return;
+  }
+  if (!bets.length) {
+    clear(host).append(errorState({
+      code: 'BAD_REQUEST',
+      message: 'Daftar taruhannya masih kosong.',
+      hint: 'Klik "Isi contoh" untuk mencoba dengan data buatan.',
+    }));
+    return;
+  }
+
+  const payload = await api('/api/backtest/simulate', {
+    method: 'POST',
+    body: {
+      bets,
+      bankroll: parseFloat(document.getElementById('b-bankroll').value),
+      kelly_multiplier: parseFloat(document.getElementById('b-kelly').value),
+      max_stake_pct: parseFloat(document.getElementById('b-cap').value) / 100,
+    },
+  });
+
+  clear(host);
+  if (!payload.ok) { host.append(errorState(payload.error)); return; }
+  render(payload.data, host);
+});
+
+function card(judul, sub, isi, legend) {
+  const box = el('section', { class: 'card' });
+  box.append(el('header', {}, el('div', { class: 'grow' },
+    el('h2', { text: judul }), el('div', { class: 'sub', text: sub }))));
+  const body = el('div', { class: 'body' });
+  body.append(isi);
+  if (legend) body.append(legend);
+  box.append(body);
+  return box;
+}
+
+function render(d, host) {
+  const s = d.summary;
+  const c = d.calibration;
+  const tepat = c.brier < c.uncertainty;
+
+  host.append(el('div', { class: 'row c4' },
+    el('div', { class: 'stat hero' },
+      el('span', { class: 'label', text: 'Brier score' }),
+      el('span', { class: 'value', style: `color:${tepat ? 'var(--good)' : 'var(--critical)'}`, text: c.brier.toFixed(4) }),
+      el('span', { class: 'foot', text: `asal tebak: ${c.uncertainty.toFixed(4)} — makin kecil makin baik` })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Final bankroll' }),
+      el('span', { class: 'value', style: `color:${s.profit >= 0 ? 'var(--good)' : 'var(--critical)'}`,
+        text: `$${s.end_bankroll.toLocaleString('id-ID')}` }),
+      el('span', { class: 'foot', text: `${s.return_pct > 0 ? 'naik' : 'turun'} ${Math.abs(s.return_pct)}% dari $${s.start_bankroll}` })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'ROI' }),
+      el('span', { class: 'value sm', text: `${s.roi_pct}%` }),
+      el('span', { class: 'foot', text: `${s.n_bets_placed} taruhan · menang ${s.win_rate_pct}%` })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Max drawdown' }),
+      el('span', { class: 'value sm', text: `${s.max_drawdown_pct}%` }),
+      el('span', { class: 'foot', text: 'dari titik tertinggi ke titik terendah' }))));
+
+  const nada = c.reliability < 0.01 ? 'info' : c.reliability < 0.03 ? 'warn' : 'bad';
+  host.append(el('div', { class: `callout ${nada}`, style: 'margin-top:20px' },
+    el('span', { class: 'bar' }),
+    el('div', { class: 'body' }, el('b', { text: 'Verdict. ' }), document.createTextNode(d.verdict))));
+
+  const equityBox = el('div');
+  const relBox = el('div');
+  const legend = el('div', { class: 'legend' },
+    el('span', { class: 'item' }, el('i', { class: 'key dot', style: 'background:var(--series-1)' }), 'gap di bawah 10 pp'),
+    el('span', { class: 'item' }, el('i', { class: 'key dot', style: 'background:var(--series-2)' }), 'gap di atas 10 pp'),
+    el('span', { class: 'item', text: 'titik di atas garis = perkiraan Anda terlalu rendah' }));
+
+  host.append(el('div', { class: 'row c2', style: 'margin-top:20px' },
+    card('Equity curve', 'garis mendatar menandai modal awal', equityBox),
+    card('Calibration', 'besar titik mengikuti jumlah pengamatan', relBox, legend)));
+
+  lineChart(equityBox, d.equity_curve.map((v, i) => ({ x: i === 0 ? 'start' : `bet ${i}`, y: v })), {
+    seriesName: 'bankroll', baseline: s.start_bankroll, height: 250,
+    tickFormat: (v) => `$${BH.compact(v)}`,
+  });
+  reliabilityChart(relBox, c.bins, { height: 250 });
+
+  const detail = el('section', { class: 'card', style: 'margin-top:20px' });
+  detail.append(el('header', {}, el('div', { class: 'grow' },
+    el('h2', { text: 'Calibration detail' }),
+    el('div', { class: 'sub', text: 'Perbandingan antara yang Anda perkirakan dan yang benar-benar terjadi' }))));
+  const body = el('div', { class: 'body-flush' });
+  renderTable(body, c.bins.filter((b) => b.count > 0),
+    ['bin', 'count', 'mean_predicted', 'observed', 'gap_pp'], {
+      name: 'calibration',
+      headers: {
+        bin: 'Predicted range', count: 'Observations',
+        mean_predicted: 'Mean predicted', observed: 'Observed', gap_pp: 'Gap (pp)',
+      },
+    });
+  detail.append(body);
+  host.append(detail);
+
+  const list = el('section', { class: 'card', style: 'margin-top:20px' });
+  list.append(el('header', {}, el('div', { class: 'grow' }, el('h2', { text: 'Every bet' }))));
+  const listBody = el('div', { class: 'body-flush' });
+  renderTable(listBody, d.bets,
+    ['n', 'label', 'prob', 'price', 'edge_pp', 'stake', 'outcome', 'pnl', 'bankroll'], {
+      name: 'bets', signed: ['edge_pp', 'pnl'], limit: 400,
+      headers: {
+        n: '#', label: 'Label', prob: 'Estimate', price: 'Price',
+        edge_pp: 'Edge (pp)', stake: 'Stake', outcome: 'Won', pnl: 'P/L', bankroll: 'Bankroll',
+      },
+    });
+  list.append(listBody);
+  host.append(list);
+}
+
+document.getElementById('b-sample').click();
+document.getElementById('b-run').click();
+</script>
+{% endblock %}

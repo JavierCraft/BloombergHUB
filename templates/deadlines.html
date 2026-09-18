@@ -1,0 +1,244 @@
+{% extends "layout.html" %}
+{% set title = "Deadlines" %}
+{% set lead = "Pasar dengan tenggat paling dekat — perkiraan machine learning, arah harga, EV, dan IEV." %}
+
+{% block body %}
+<div class="ml-page">
+
+<div class="row c4">
+  <div class="stat">
+    <span class="label">Markets in window</span>
+    <span class="value" id="s-count">—</span>
+    <span class="foot" id="s-count-foot">memuat…</span>
+  </div>
+  <div class="stat">
+    <span class="label">Soonest deadline</span>
+    <span class="value sm" id="s-soonest">—</span>
+    <span class="foot" id="s-soonest-foot"></span>
+  </div>
+  <div class="stat">
+    <span class="label">ML model</span>
+    <span class="value sm" id="s-model">—</span>
+    <span class="foot" id="s-model-foot"></span>
+  </div>
+  <div class="stat">
+    <span class="label">Positive EV (model)</span>
+    <span class="value" id="s-positive">—</span>
+    <span class="foot" id="s-positive-foot"></span>
+  </div>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Deadline radar</h2>
+      <div class="sub">Klik satu baris untuk EV per outcome, IEP/IEV, berita, pendapat Claude, dan tombol paper trade</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="width:150px">
+        <label for="d-days">Window</label>
+        <select id="d-days">
+          <option value="0.25">6 jam</option>
+          <option value="1">24 jam</option>
+          <option value="3">3 hari</option>
+          <option value="7" selected>7 hari</option>
+          <option value="14">14 hari</option>
+        </select>
+      </div>
+      <div class="field" style="width:170px">
+        <label for="d-source">Source</label>
+        <select id="d-source">
+          <option value="all" selected>Semua sumber</option>
+          <option value="polymarket">Polymarket</option>
+          <option value="limitless">Limitless (USDC)</option>
+          <option value="manifold">Manifold (uang main)</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1;min-width:200px">
+        <label for="d-q">Keyword</label>
+        <input id="d-q" placeholder="fed, bitcoin, election, openai" spellcheck="false">
+      </div>
+      <div class="field" style="width:170px">
+        <label for="d-sports">Sports matches</label>
+        <select id="d-sports">
+          <option value="1" selected>Tampilkan</option>
+          <option value="0">Sembunyikan</option>
+        </select>
+      </div>
+      <button id="d-load" type="button">Load</button>
+    </div>
+  </div>
+  <div class="body-flush" id="d-table"></div>
+</section>
+
+<section class="card" id="d-detail-card" hidden>
+  <header>
+    <div class="grow">
+      <h2 id="d-detail-title">Market</h2>
+      <div class="sub" id="d-detail-sub"></div>
+    </div>
+    <button class="quiet sm" type="button" id="d-detail-close">Close</button>
+  </header>
+  <div class="body" id="d-detail"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Does the price rise as the deadline nears?</h2>
+      <div class="sub">Diukur dari pasar yang sudah selesai: apakah favorit menang lebih sering daripada harganya, per sisa waktu</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="d-effect"></div>
+</section>
+
+<details class="explain">
+  <summary>Cara membaca arah, EV, dan "tenggat mepet"</summary>
+  <div class="inner">
+    <p><b>Arah</b> membandingkan peluang model dengan harga sekarang. "▲ naik 62%" pada harga 55¢
+    berarti model menilai YES lebih mungkin daripada harganya, jadi kalau model benar, harga YES
+    cenderung naik menuju 100% saat tenggat tiba. Itu perkiraan, bukan kepastian — dan model yang
+    belum terbukti mengalahkan harga pasar ditandai demikian di setiap baris.</p>
+    <p><b>EV</b> dihitung pada harga yang benar-benar bisa Anda dapat (best ask), bukan harga tengah.
+    EV di harga konsensus selalu nol atau negatif: itu biaya masuk. EV positif hanya muncul dari
+    perkiraan yang berbeda dari pasar.</p>
+    <p><b>Kenapa tenggat mepet menarik.</b> Pasar "akan terjadi sebelum tanggal X" kehilangan waktu
+    setiap jam; kalau belum terjadi, peluang YES seharusnya turun. Pasar yang menunggu keputusan
+    terjadwal (misalnya rapat The Fed) justru bergerak tajam saat keputusan diumumkan. Tabel di atas
+    mengukur dari data historis apakah favorit di rentang waktu tertentu menang lebih sering dari
+    harganya — itulah pola "harga naik karena mepet" dalam angka.</p>
+    <p>Semua prediksi dari halaman ini dicatat oleh <a href="/paper">Paper Test</a>, lalu dicocokkan
+    dengan hasil sebenarnya saat pasar selesai: benar atau salah, win rate, dan kalibrasinya.</p>
+  </div>
+</details>
+
+<details class="explain">
+  <summary>IEP dan IEV di pasar prediksi</summary>
+  <div class="inner">
+    <p>IEP (Indicative Equilibrium Price) dan IEV (Indicative Equilibrium Volume) adalah angka yang
+    Anda lihat di Bursa Efek Indonesia saat praperdagangan: harga yang mempertemukan volume
+    terbanyak bila semua pesanan dicocokkan sekarang, dan volume itu. Aturan pencocokannya:
+    volume terbesar, lalu surplus terkecil, lalu terdekat ke harga acuan.</p>
+    <p>Polymarket, Limitless, dan Manifold diperdagangkan terus-menerus, bukan lewat lelang. Di buku yang normal
+    bid tertinggi selalu di bawah ask terendah, jadi IEV yang jujur adalah <b>nol</b> — dan itu yang
+    ditampilkan. IEV hanya positif saat buku bersilangan.</p>
+    <p>Yang tetap berguna: <b>volume menuju nilai wajar model</b> — berapa lembar di buku yang lebih
+    murah dari peluang model, berapa biayanya, dan untung harapannya. Itu bergantung pada keyakinan
+    model, jadi diberi label terpisah, bukan disebut IEV.</p>
+  </div>
+</details>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, load, clear, renderTable } = BH;
+const ml = BH.ml;
+
+function radarPath() {
+  const qs = new URLSearchParams({
+    days: document.getElementById('d-days').value,
+    source: document.getElementById('d-source').value,
+    sports: document.getElementById('d-sports').value,
+    limit: '60',
+  });
+  const q = document.getElementById('d-q').value.trim();
+  if (q) qs.set('q', q);
+  return `/api/deadlines?${qs}`;
+}
+
+function setTiles(data) {
+  const markets = data.markets || [];
+  document.getElementById('s-count').textContent = String(data.count ?? markets.length);
+  const bySource = Object.entries(data.by_source || {}).map(([k, v]) => `${k} ${v}`).join(' · ');
+  document.getElementById('s-count-foot').textContent = bySource || 'tidak ada sumber yang menjawab';
+  const soonest = markets[0];
+  const soonestNode = document.getElementById('s-soonest');
+  if (soonest) {
+    soonestNode.dataset.countdown = soonest.deadline;
+    soonestNode.textContent = ml.countdown(soonest.deadline);
+    document.getElementById('s-soonest-foot').textContent = soonest.question;
+  } else {
+    delete soonestNode.dataset.countdown;
+    soonestNode.textContent = '—';
+    document.getElementById('s-soonest-foot').textContent = '';
+  }
+  const model = data.model || {};
+  document.getElementById('s-model').textContent = !model.trained ? 'Belum dilatih'
+    : model.beats_market ? 'Lebih tepat dari pasar' : 'Belum terbukti';
+  document.getElementById('s-model-foot').textContent = model.trained
+    ? `Brier ${model.brier_model} lawan pasar ${model.brier_market} · ${model.tested_markets} pasar uji`
+    : 'Latih di halaman Paper Test';
+  document.getElementById('s-positive').textContent = String(data.positive_ev ?? 0);
+  document.getElementById('s-positive-foot').textContent = `dari ${data.with_model ?? 0} pasar yang dinilai model`;
+}
+
+function renderRadar(data, meta, host) {
+  if (!data || Array.isArray(data)) data = {markets: []};
+  setTiles(data);
+  ml.radar(host, data, {
+    name: 'deadlines', limit: 200,
+    columns: ['deadline_ms', 'market', 'yes_price', 'model_prob', 'best_ev', 'size', 'posted'],
+    detailBody: document.getElementById('d-detail'),
+    onPick: (m) => {
+      const card = document.getElementById('d-detail-card');
+      card.hidden = false;
+      document.getElementById('d-detail-title').textContent = m.question;
+      document.getElementById('d-detail-sub').textContent =
+        `${ml.sourceLabel(m.source)} · tenggat ${ml.wib(m.deadline)} · ${m.time_left} lagi`;
+      requestAnimationFrame(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}));
+    },
+  });
+}
+
+document.getElementById('d-detail-close').addEventListener('click', () => {
+  document.getElementById('d-detail-card').hidden = true;
+});
+
+function loadRadar() {
+  load(document.getElementById('d-table'), radarPath(), renderRadar, {skeletonRows: 6});
+}
+
+function renderEffect(report, meta, host) {
+  const rows = (report && report.deadline_effect) || [];
+  if (!rows.length) {
+    host.append(el('div', {class: 'empty'}, 'Model belum dilatih, jadi data historisnya belum ada. ',
+      el('a', {href: '/paper', text: 'Latih model di Paper Test →'})));
+    return;
+  }
+  const table = el('div');
+  host.append(table);
+  renderTable(table, rows.map((r) => ({
+    kind: r.kind_label || 'Semua pertanyaan', bucket: r.bucket, markets: r.markets, n: r.n,
+    yes: r.avg_yes_price != null ? `${(r.avg_yes_price * 100).toFixed(1)}% → ${(r.yes_rate * 100).toFixed(1)}%` : '—',
+    yes_gap_pp: r.yes_gap_pp ?? null, yes_reading: r.yes_reading || '',
+    fav: `${(r.avg_favorite_price * 100).toFixed(1)}% → ${(r.favorite_win_rate * 100).toFixed(1)}%`,
+    gap_pp: r.gap_pp, se_pp: r.se_pp, reading: r.reading,
+  })), ['kind', 'bucket', 'markets', 'n', 'yes', 'yes_gap_pp', 'yes_reading', 'fav', 'gap_pp', 'se_pp', 'reading'], {
+    name: 'deadline-effect', signed: ['yes_gap_pp', 'gap_pp'], limit: 60,
+    headers: {kind: 'Question type', bucket: 'Time to deadline', markets: 'Markets', n: 'Snapshots',
+      yes: 'YES price → happened', yes_gap_pp: 'YES gap (pp)', yes_reading: 'YES reading',
+      fav: 'Favourite price → won', gap_pp: 'Fav. gap (pp)', se_pp: '± 1 SE', reading: 'Favourite reading'},
+  });
+  const d = report.data || {};
+  const ex = d.excluded_unknown_deadline || {};
+  host.append(el('p', {class: 'sub', style: 'padding:12px 18px', text:
+    `Dari ${d.tested_markets ?? '—'} pasar uji, snapshot dengan harga 5–95%. Selisih yang lebih besar dari dua simpangan baku `
+    + 'dianggap pola; yang lebih kecil bisa kebetulan. '
+    + (ex.markets ? `${ex.markets} pasar Manifold yang selesai sebelum jadwal tidak dipakai karena tenggat aslinya tidak diketahui.` : '')}));
+}
+
+document.getElementById('d-load').addEventListener('click', loadRadar);
+document.getElementById('d-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadRadar(); });
+['d-days', 'd-source', 'd-sports'].forEach((id) => document.getElementById(id).addEventListener('change', loadRadar));
+
+loadRadar();
+load(document.getElementById('d-effect'), '/api/ml/report', renderEffect, {skeletonRows: 3});
+setInterval(() => { if (!document.hidden) loadRadar(); }, 120000);
+</script>
+{% endblock %}

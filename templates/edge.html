@@ -1,0 +1,292 @@
+{% extends "layout.html" %}
+{% set title = "Edge" %}
+{% set lead = "Bandingkan perkiraan Anda dengan harga pasar. Semua hitungan berjalan di komputer ini." %}
+
+{% block body %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Edge calculator</h2>
+      <div class="sub">Di pasar prediksi, harga <i>adalah</i> peluang — 55 sen berarti pasar menilai 55%</div>
+    </div>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="width:170px">
+        <label for="e-prob">Your estimate</label>
+        <input id="e-prob" type="number" value="62" step="0.5" min="0" max="100">
+        <span class="help">dalam persen</span>
+      </div>
+      <div class="field" style="width:170px">
+        <label for="e-price">Market price</label>
+        <input id="e-price" type="number" value="55" step="0.5" min="0.1" max="99.9">
+        <span class="help">dalam sen per lembar</span>
+      </div>
+      <div class="field" style="width:170px">
+        <label for="e-bankroll">Bankroll</label>
+        <input id="e-bankroll" type="number" value="1000" step="50">
+        <span class="help">dalam dolar</span>
+      </div>
+      <div class="field" style="width:190px">
+        <label for="e-kelly">Stake size</label>
+        <select id="e-kelly">
+          <option value="0.25">Quarter Kelly</option>
+          <option value="0.5" selected>Half Kelly</option>
+          <option value="1">Full Kelly</option>
+        </select>
+        <span class="help">seberapa besar porsi modal</span>
+      </div>
+      <button id="e-run" type="button">Calculate</button>
+    </div>
+    <div id="e-out" style="margin-top:20px"></div>
+  </div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>De-vig</h2>
+        <div class="sub">Ubah odds bandar jadi peluang yang jujur</div>
+      </div>
+    </header>
+    <div class="body">
+      <div class="controls">
+        <div class="field" style="flex:1;min-width:180px">
+          <label for="d-odds">Odds per outcome</label>
+          <input id="d-odds" value="-150, +130">
+          <span class="help">Bisa format Amerika (+150), desimal (2,5), atau peluang (0,42)</span>
+        </div>
+        <div class="field" style="width:150px">
+          <label for="d-method">Method</label>
+          <select id="d-method">
+            <option value="power" selected>Power</option>
+            <option value="shin">Shin</option>
+            <option value="multiplicative">Multiplicative</option>
+          </select>
+          <span class="help">Power paling seimbang</span>
+        </div>
+        <button id="d-run" type="button">Calculate</button>
+      </div>
+      <div id="d-out" style="margin-top:16px"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Arbitrage scanner</h2>
+        <div class="sub">Untung pasti muncul kalau jumlah peluangnya di bawah 100%</div>
+      </div>
+    </header>
+    <div class="body">
+      <div class="controls">
+        <div class="field" style="flex:1;min-width:180px">
+          <label for="a-odds">Odds per outcome</label>
+          <input id="a-odds" value="2,20 / 2,20">
+          <span class="help">pisahkan dengan koma atau garis miring</span>
+        </div>
+        <button id="a-run" type="button">Scan</button>
+      </div>
+      <div id="a-out" style="margin-top:16px"></div>
+    </div>
+  </section>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Poisson match model</h2>
+      <div class="sub">Masukkan expected goals, dapatkan peluang menang, seri, dan total gol</div>
+    </div>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="width:170px"><label for="p-h">Home xG</label><input id="p-h" type="number" value="1.8" step="0.1" min="0"></div>
+      <div class="field" style="width:170px"><label for="p-a">Away xG</label><input id="p-a" type="number" value="1.2" step="0.1" min="0"></div>
+      <div class="field" style="width:170px"><label for="p-t">Total line</label><input id="p-t" type="number" value="2.5" step="0.5" min="0.5"></div>
+      <button id="p-run" type="button">Calculate</button>
+    </div>
+    <div id="p-out" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<details class="explain">
+  <summary>Kenapa ada tiga cara membuang margin bandar</summary>
+  <div class="inner">
+    <p>Bandar selalu memasang harga sedikit lebih mahal dari peluang sebenarnya. Selisih itu
+    keuntungan mereka, dan harus dibuang dulu sebelum angkanya bisa dipakai.</p>
+    <p>Cara <b>Sederhana</b> — membagi rata — adalah yang paling sering dipakai orang, tapi
+    hasilnya berat sebelah: peluang kecil dipotong terlalu banyak. Pada pertandingan yang
+    berimbang ketiga cara memberi hasil hampir sama, tapi pada pilihan berpeluang kecil
+    hasilnya berbeda jelas — dan di situlah biasanya kesalahan harga pasar berada.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, clear, renderTable, errorState, skeleton } = BH;
+
+async function post(path, body, host, render) {
+  clear(host).append(skeleton(3));
+  const payload = await api(path, { method: 'POST', body });
+  clear(host);
+  if (!payload.ok) { host.append(errorState(payload.error)); return; }
+  render(payload.data, host);
+}
+
+const VERDICT = { BET: ['good', 'Bet'], MARGINAL: ['warning', 'Marginal'], 'NO BET': ['critical', 'No bet'] };
+
+document.getElementById('e-run').addEventListener('click', () => {
+  post('/api/betting/edge', {
+    model_prob: parseFloat(document.getElementById('e-prob').value),
+    market_price: parseFloat(document.getElementById('e-price').value),
+    bankroll: parseFloat(document.getElementById('e-bankroll').value),
+    kelly_multiplier: parseFloat(document.getElementById('e-kelly').value),
+  }, document.getElementById('e-out'), (d, host) => {
+    const [tone, label] = VERDICT[d.verdict] || ['', d.verdict];
+    const cards = el('div', { class: 'row c4' });
+
+    cards.append(el('div', { class: 'stat hero' },
+      el('span', { class: 'label', text: 'EV per $100' }),
+      el('span', {
+        class: 'value',
+        style: `color:${d.ev_per_100 > 0 ? 'var(--good)' : 'var(--critical)'}`,
+        text: `${d.ev_per_100 > 0 ? '+' : ''}$${d.ev_per_100.toFixed(2)}`,
+      }),
+      el('span', { class: 'foot', text: 'kalau taruhan ini diulang berkali-kali' })));
+
+    cards.append(el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Edge' }),
+      el('span', { class: 'value', text: `${d.edge_pp > 0 ? '+' : ''}${d.edge_pp} pp` }),
+      el('span', { class: 'foot', text: `Anda ${(d.model_prob * 100).toFixed(1)}% · pasar ${(d.market_price * 100).toFixed(1)}%` })));
+
+    cards.append(el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Suggested stake' }),
+      el('span', { class: 'value', text: `$${d.stake.toFixed(2)}` }),
+      el('span', { class: 'foot', text: `${(d.kelly_used * 100).toFixed(1)}% dari modal Anda` })));
+
+    cards.append(el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Verdict' }),
+      el('span', { class: 'value sm' }, el('span', { class: `chip ${tone}` }, el('span', { class: 'led' }), label)),
+      el('span', { class: 'foot', text: `Rugi kalau peluang aslinya di bawah ${(d.breakeven_prob * 100).toFixed(1)}%` })));
+
+    host.append(cards);
+
+    if (d.note) {
+      host.append(el('div', { class: 'callout warn', style: 'margin-top:16px' },
+        el('span', { class: 'bar' }), el('div', { class: 'body', text: d.note })));
+    }
+
+    const facts = el('dl', { class: 'facts', style: 'margin-top:18px' });
+    for (const [k, v] of [
+      ['Decimal odds', d.decimal_odds],
+      ['American odds', d.american_odds > 0 ? `+${d.american_odds}` : d.american_odds],
+      ['Full Kelly', `${(d.kelly_full * 100).toFixed(2)}%`],
+    ]) facts.append(el('dt', { text: k }), el('dd', { text: String(v) }));
+    host.append(facts);
+  });
+});
+
+document.getElementById('d-run').addEventListener('click', () => {
+  post('/api/betting/devig', {
+    odds: document.getElementById('d-odds').value,
+    method: document.getElementById('d-method').value,
+  }, document.getElementById('d-out'), (d, host) => {
+    host.append(el('div', { class: 'row c2' },
+      el('div', { class: 'stat' },
+        el('span', { class: 'label', text: 'Overround' }),
+        el('span', { class: 'value sm', text: d.overround_pct }),
+        el('span', { class: 'foot', text: 'kelebihan di atas 100%' })),
+      el('div', { class: 'stat' },
+        el('span', { class: 'label', text: 'Vig per outcome' }),
+        el('span', { class: 'value sm', text: d.vig_per_outcome_pct }),
+        el('span', { class: 'foot', text: `cara: ${d.method}` }))));
+
+    const rows = d.probabilities.map((p, i) => ({
+      outcome: `Outcome ${i + 1}`,
+      probability: `${(p * 100).toFixed(2)}%`,
+      fair_odds: d.fair_decimal_odds[i],
+      multiplicative: `${(d.all_methods.multiplicative[i] * 100).toFixed(2)}%`,
+      power: `${(d.all_methods.power[i] * 100).toFixed(2)}%`,
+      shin: `${(d.all_methods.shin[i] * 100).toFixed(2)}%`,
+    }));
+    const box = el('div', { style: 'margin-top:16px' });
+    renderTable(box, rows, Object.keys(rows[0]), { name: 'fair-odds' });
+    host.append(box);
+  });
+});
+
+document.getElementById('a-run').addEventListener('click', () => {
+  post('/api/betting/arb', { outcomes: document.getElementById('a-odds').value.replace(/[\/;]/g, ',') },
+    document.getElementById('a-out'), (d, host) => {
+      if (!d.exists) {
+        host.append(el('div', { class: 'state' },
+          el('div', { class: 'icon' }, BH.icon(BH.ICONS.empty, 'var(--ink-3)')),
+          el('div', { class: 'msg', text: 'No arbitrage' }),
+          el('div', { class: 'hint', text: `Jumlah peluangnya ${d.overround_pct} di atas 100%, jadi tidak ada untung pasti di sini.` })));
+        return;
+      }
+      host.append(el('div', { class: 'row c2' },
+        el('div', { class: 'stat' },
+          el('span', { class: 'label', text: 'Locked profit' }),
+          el('span', { class: 'value', style: 'color:var(--good)', text: d.profit_pct }),
+          el('span', { class: 'foot', text: 'berapa pun hasil pertandingannya' })),
+        el('div', { class: 'stat' },
+          el('span', { class: 'label', text: 'Book sum' }),
+          el('span', { class: 'value sm', text: `${(d.book_sum * 100).toFixed(2)}%` }),
+          el('span', { class: 'foot', text: 'di bawah 100% berarti ada celah' }))));
+
+      const rows = Object.entries(d.stake_per_1000).map(([k, v], i) => ({
+        outcome: `Outcome ${i + 1}`,
+        stake_per_1000: `$${v}`,
+        share: `${(d.stakes_normalized[k] * 100).toFixed(2)}%`,
+      }));
+      const box = el('div', { style: 'margin-top:16px' });
+      renderTable(box, rows, ['outcome', 'stake_per_1000', 'share'], { name: 'arbitrage' });
+      host.append(box);
+      host.append(el('div', { class: 'callout warn', style: 'margin-top:16px' },
+        el('span', { class: 'bar' }),
+        el('div', { class: 'body', text: 'Periksa dulu batas taruhan dan kecepatan eksekusi. Celah seperti ini biasanya tertutup dalam hitungan detik.' })));
+    });
+});
+
+document.getElementById('p-run').addEventListener('click', () => {
+  post('/api/betting/poisson', {
+    home_xg: parseFloat(document.getElementById('p-h').value),
+    away_xg: parseFloat(document.getElementById('p-a').value),
+    total_line: parseFloat(document.getElementById('p-t').value),
+  }, document.getElementById('p-out'), (d, host) => {
+    const grid = el('div', { class: 'row c3' });
+    for (const [judul, rows] of [
+      ['Match result', d.one_x_two],
+      ['Total goals', d.totals],
+      ['Both teams to score', d.btts],
+    ]) {
+      const card = el('section', { class: 'card' });
+      card.append(el('header', {}, el('div', { class: 'grow' }, el('h3', { text: judul }))));
+      const body = el('div', { class: 'body-flush' });
+      renderTable(body, rows.map((r) => ({
+        outcome: r.outcome,
+        probability: r.percent,
+        fair_odds: r.fair_decimal,
+      })), ['outcome', 'probability', 'fair_odds'], { name: 'model' });
+      card.append(body);
+      grid.append(card);
+    }
+    host.append(grid);
+
+    const scores = el('div', { style: 'margin-top:18px' });
+    renderTable(scores, d.top_scores, ['score', 'percent'], {
+      name: 'scores', headers: { score: 'Score', percent: 'Probability' },
+    });
+    host.append(el('h3', { text: 'Ten most likely scores', style: 'margin:20px 0 10px' }), scores);
+  });
+});
+
+document.getElementById('e-run').click();
+</script>
+{% endblock %}

@@ -1,0 +1,220 @@
+{% extends "layout.html" %}
+{% set title = "Tech" %}
+{% set lead = "Pasar teknologi dimenangkan oleh siapa yang tahu duluan, bukan siapa yang modelnya paling canggih." %}
+
+{% block body %}
+{% set monitor_sector = "technology" %}
+{% include "sector_monitor.html" %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Latest LLMs</h2>
+      <div class="sub">Pengumuman model dari blog lab dan pelacak AI — pasar "model AI terbaik" diselesaikan oleh rilis dan papan peringkat</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="llm-tabs">
+      <button data-hours="72" type="button">3 days</button>
+      <button class="on" data-hours="336" type="button">14 days</button>
+      <button data-hours="720" type="button">30 days</button>
+    </div>
+  </header>
+  <div class="body-flush" id="llm-radar"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Claude models</h2>
+      <div class="sub">Dari Anthropic Models API bila ANTHROPIC_API_KEY terisi; daftar terdokumentasi bila tidak</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="llm-claude"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Releases from watched labs</h2>
+      <div class="sub">Nama-nama yang biasa muncul di pertanyaan pasar</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="watch-tabs">
+      <button class="on" data-hours="336" type="button">14 days</button>
+      <button data-hours="720" type="button">30 days</button>
+      <button data-hours="2160" type="button">90 days</button>
+    </div>
+  </header>
+  <div class="body-flush" id="watch"></div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow"><h2>Newest models</h2><div class="sub">Semua model, diurutkan dari yang baru diunggah</div></div>
+      <span class="sub" data-meta></span>
+      <div class="tabs" id="new-tabs">
+        <button class="on" data-hours="6" type="button">6 hours</button>
+        <button data-hours="24" type="button">24 hours</button>
+        <button data-hours="72" type="button">3 days</button>
+      </div>
+    </header>
+    <div class="body-flush" id="new"></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow"><h2>Trending</h2><div class="sub">Yang sedang banyak dibicarakan</div></div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body-flush" id="trending"></div>
+  </section>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Search models</h2>
+      <div class="sub">Untuk memeriksa klaim tertentu dalam pertanyaan pasar</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="flex:1;min-width:240px">
+        <label for="q">Keyword</label>
+        <input id="q" value="reasoning" spellcheck="false">
+        <span class="help">nama model, lab, atau jenis tugas</span>
+      </div>
+      <button id="q-run" type="button">Search</button>
+    </div>
+    <div id="search" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>New datasets</h2>
+      <div class="sub">Sering menjadi acuan penyelesaian sebuah pasar</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="datasets"></div>
+</section>
+
+<details class="explain">
+  <summary>Baca aturan penyelesaiannya sebelum membuat model</summary>
+  <div class="inner">
+    <p>Pasar teknologi biasanya diselesaikan berdasarkan satu papan peringkat tertentu yang
+    disebut di aturannya. Kalau papan peringkat itu mencatat angka yang berbeda dari kenyataan,
+    pasar tetap diselesaikan menurut papan peringkat tersebut.</p>
+    <p>Jadi risiko terbesar di kategori ini bukan modelnya salah, melainkan salah membaca
+    aturan mainnya.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { loadTable } = BH;
+
+const HEADERS = {
+  created_at: 'Created', id: 'Model', author: 'Author', pipeline_tag: 'Task',
+  downloads: 'Downloads', likes: 'Likes', url: 'Link', last_modified: 'Updated',
+};
+
+function segment(groupId, hostId, build, options = {}) {
+  const group = document.getElementById(groupId);
+  const host = document.getElementById(hostId);
+  const go = (button) => {
+    group.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+    loadTable(host, build(button), { name: hostId, headers: HEADERS, ...options });
+  };
+  group.addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (button) go(button);
+  });
+  go(group.querySelector('button.on'));
+}
+
+segment('watch-tabs', 'watch', (b) => `/api/tech/watch?hours=${b.dataset.hours}`, {
+  columns: ['created_at', 'id', 'author', 'pipeline_tag', 'downloads', 'url'],
+  sort: 'created_at',
+  emptyText: 'Belum ada rilis baru dari lab yang dipantau pada rentang ini.',
+});
+
+segment('new-tabs', 'new', (b) => `/api/tech/new?hours=${b.dataset.hours}`, {
+  columns: ['created_at', 'id', 'pipeline_tag', 'likes'], sort: 'created_at',
+});
+
+loadTable(document.getElementById('trending'), '/api/tech/trending', {
+  name: 'trending', headers: HEADERS,
+  columns: ['id', 'pipeline_tag', 'downloads', 'likes'],
+});
+
+loadTable(document.getElementById('datasets'), '/api/tech/datasets?hours=48', {
+  name: 'datasets', headers: HEADERS,
+  columns: ['created_at', 'id', 'author', 'downloads', 'url'],
+});
+
+function search() {
+  const q = encodeURIComponent(document.getElementById('q').value.trim());
+  if (!q) return;
+  loadTable(document.getElementById('search'), `/api/tech/search?q=${q}`, {
+    name: 'search-results', headers: HEADERS,
+    columns: ['id', 'pipeline_tag', 'downloads', 'likes', 'last_modified', 'url'],
+  });
+}
+function renderRadar(data, meta, target) {
+  if (!data || Array.isArray(data)) return;
+  const { el } = BH;
+  for (const f of data.failed || []) target.append(el('div', { class: 'stale', text: `${f.source}: ${f.reason}` }));
+  const families = el('div', { class: 'term-list' });
+  for (const f of data.families || []) families.append(el('span', { class: 'pill', text: `${f.family} · ${f.mentions}` }));
+  if ((data.families || []).length) target.append(families);
+  const table = el('div');
+  target.append(table);
+  BH.renderTable(table, data.rows.map((r) => ({
+    time: BH.stampUTC(r.time), models: r.models, title: r.title,
+    release: r.release_signal ? 'rilis' : '', desk: r.lab_or_desk, kind: r.kind, url: r.url,
+  })), ['time', 'models', 'title', 'release', 'desk', 'kind', 'url'], {
+    name: 'llm-radar',
+    headers: { time: 'Time (UTC)', models: 'Models named', title: 'Headline', release: 'Signal',
+      desk: 'Lab / desk', kind: 'Kind', url: 'Link' },
+    emptyText: 'Belum ada judul yang menyebut model pada rentang ini.',
+  });
+  target.append(el('p', { class: 'sub', style: 'padding:12px 18px', text: data.note }));
+}
+
+function renderClaude(data, meta, target) {
+  if (!data || Array.isArray(data)) return;
+  const { el } = BH;
+  if (data.error) target.append(el('div', { class: 'stale', text: data.error }));
+  target.append(el('p', { class: 'sub', style: 'padding:12px 18px 0',
+    text: data.live ? data.note : `${data.note} Per ${data.as_of}.` }));
+  const table = el('div');
+  target.append(table);
+  BH.renderTable(table, data.models, data.live ? ['id', 'name', 'created_at'] : ['name', 'id', 'context', 'price', 'note'], {
+    name: 'claude-models',
+    headers: { id: 'Model ID', name: 'Name', created_at: 'Released', context: 'Context', price: '$ / MTok in / out', note: 'Note' },
+  });
+}
+
+const llmTabs = document.getElementById('llm-tabs');
+llmTabs.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  llmTabs.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  BH.load(document.getElementById('llm-radar'), `/api/tech/llm/radar?hours=${b.dataset.hours}`, renderRadar, { skeletonRows: 5 });
+});
+BH.load(document.getElementById('llm-radar'), '/api/tech/llm/radar?hours=336', renderRadar, { skeletonRows: 5 });
+BH.load(document.getElementById('llm-claude'), '/api/tech/llm/claude', renderClaude, { skeletonRows: 3 });
+
+document.getElementById('q-run').addEventListener('click', search);
+document.getElementById('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+search();
+</script>
+{% endblock %}

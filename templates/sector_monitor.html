@@ -1,0 +1,42 @@
+{% set data_page = {'technology': 'tech', 'soccer': 'sports'}.get(monitor_sector, monitor_sector) %}
+<section class="card" data-sector-ml="{{ monitor_sector }}">
+  <header>
+    <div class="grow">
+      <h2>Machine learning · tenggat terdekat</h2>
+      <div class="sub" data-ml-summary>Pasar sektor ini yang berakhir dalam 14 hari: peluang menurut model, arah harga, dan EV. Memuat…</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <a class="sub" href="/deadlines">Semua tenggat →</a>
+  </header>
+  <div class="body-flush" data-ml-radar></div>
+  <div class="body ml-detail" data-ml-detail hidden>
+    <div class="ml-detail-head">
+      <h3 class="grow" data-ml-detail-title>Market</h3>
+      <button class="quiet sm" type="button" data-ml-detail-close>Close</button>
+    </div>
+    <div data-ml-detail-body></div>
+  </div>
+</section>
+
+<section class="card" data-sector-monitor="{{ monitor_sector }}">
+  <header><div class="grow"><h2>Latest headlines &amp; prediction markets</h2><div class="sub">Berita mengalir masuk tiap 15 detik tanpa menggambar ulang daftarnya · odds dan analisis pasar diperbarui tiap 30 detik</div></div></header>
+  <div class="body">
+    <div class="controls"><div class="field" style="flex:1;min-width:220px"><label>Keyword berita &amp; pasar<input aria-label="Keyword berita dan pasar" value="{{ monitor_sector }}"></label></div><button type="button">Cari</button></div>
+    <p class="sub">Keyword awal atau kosong menampilkan pasar sektor ini dan berita dari feed sektornya. Keyword lain mencari pasar lintas kategori. Pasar diambil dari Polymarket; kalau Polymarket diblokir, dari Limitless (uang sungguhan, USDC) dan Manifold (uang main) — sumbernya ditulis di setiap pasar. Setiap pasar membawa EV (harga konsensus dan model ML), IEP/IEV dari buku pesanan, analisis berita ML, dan pendapat Claude opsional.</p>
+    <div class="row c2" style="margin-top:18px">
+      <section class="card"><header><h3 class="grow">Latest headlines</h3><span class="sub" data-meta></span></header><div class="monitor-scroll" data-headlines tabindex="0" aria-label="Berita terbaru" aria-live="polite"></div></section>
+      <section class="card"><header><h3 class="grow">Prediction markets · odds &amp; analisis</h3><span class="sub" data-meta></span></header><div class="monitor-scroll" data-poly tabindex="0" aria-label="Pasar dan analisis"></div></section>
+    </div>
+  </div>
+</section>
+
+<section class="card" data-datahub="{{ data_page }}">
+  <header>
+    <div class="grow">
+      <h2>Public data</h2>
+      <div class="sub">Angka resmi, jadwal, dan data publik yang membantu menilai pasar di sektor ini</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body" data-datahub-body></div>
+</section>

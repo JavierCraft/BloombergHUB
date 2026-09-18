@@ -1,0 +1,225 @@
+{% extends "layout.html" %}
+{% set title = "Culture" %}
+{% set lead = "Musik, serial, dan film dari API resmi — dua dari tiga tidak perlu kunci sama sekali." %}
+
+{% block body %}
+{% set monitor_sector = "culture" %}
+{% include "sector_monitor.html" %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Data sources</h2>
+      <div class="sub">Apa yang menyalakan halaman ini sekarang, dan apa yang ditinggalkan</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="status"></div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Global chart</h2>
+        <div class="sub">Peringkat harian Deezer — bergerak jauh lebih cepat daripada tangga lagu mingguan</div>
+      </div>
+      <span class="sub" data-meta></span>
+      <div class="tabs" id="chart-tabs">
+        <button class="on" data-kind="tracks" type="button">Tracks</button>
+        <button data-kind="albums" type="button">Albums</button>
+      </div>
+    </header>
+    <div class="body-flush" id="chart"></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Airing today</h2>
+        <div class="sub">Episode yang tayang pada tanggal pilihan, dari TVmaze</div>
+      </div>
+      <span class="sub" data-meta></span>
+      <input type="date" id="tv-date" style="width:160px" aria-label="Tanggal tayang">
+    </header>
+    <div class="body-flush" id="schedule"></div>
+  </section>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Search titles</h2>
+      <div class="sub">Lacak lagu, musisi, serial, atau film yang disebut sebuah pasar</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="search-kind">
+      <button class="on" data-kind="track" type="button">Tracks</button>
+      <button data-kind="artist" type="button">Artists</button>
+      <button data-kind="show" type="button">TV shows</button>
+      <button data-kind="movie" type="button">Films</button>
+    </div>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="flex:1;min-width:240px">
+        <label for="q">Keyword</label>
+        <input id="q" value="dune" spellcheck="false">
+        <span class="help">judul lagu, serial, film, atau nama musisi</span>
+      </div>
+      <button id="q-run" type="button">Search</button>
+    </div>
+    <div id="search" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<details class="explain">
+  <summary>Kenapa Spotify dan TMDb tidak dipakai lagi, dan kenapa Billboard tidak pernah dipakai</summary>
+  <div class="inner">
+    <p><b>Yang berubah pada 11 September 2026.</b> Kedua sumber asli halaman ini pindah ke
+    model berbayar. TMDb kini meminta langganan pengembang USD 149 per bulan, dan Spotify
+    hanya menerbitkan kunci API untuk akun Premium. Akibatnya seluruh halaman ini berubah
+    jadi deretan pesan "kunci belum diisi" yang tidak bisa diperbaiki dengan mengisi apa pun.</p>
+    <p>Penggantinya dipilih dengan syarat yang sama seperti sumber lain di aplikasi ini:
+    API resmi, bukan pembaca halaman web. <b>Deezer</b> dan <b>TVmaze</b> tidak meminta kunci
+    sama sekali. <b>OMDb</b> meminta kunci, tapi gratis — 1.000 permintaan per hari. Sampai
+    kuncinya diisi, kartu Films akan mengatakannya terus terang, bukan menampilkan tabel kosong.</p>
+    <p>Kode Spotify dan TMDb tidak dihapus. Keduanya masih ada di
+    <code>src/culture/__init__.py</code> dan tetap berfungsi bagi yang berlangganan. Yang
+    berubah hanya ini: tidak ada satu halaman pun yang bergantung padanya lagi.</p>
+    <p><b>Soal Billboard dan Box Office Mojo.</b> Alat pengambil datanya yang beredar luas
+    sudah lama tidak diperbarui — yang satu sejak 2024, yang lain sejak awal 2025. Keduanya
+    bekerja dengan membaca susunan halaman web, dan alat semacam itu gagal <i>tanpa memberi
+    tahu</i>: begitu halamannya berubah, ia mengembalikan daftar kosong seolah-olah minggu itu
+    memang tidak ada rilis apa pun. Itu bentuk kegagalan paling berbahaya untuk program yang
+    dipakai mengambil keputusan.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, clear, loadTable } = BH;
+
+/* ---------------------------------------------------------------- status */
+const TONE = {
+  live: ['good', 'Live'],
+  needs_key: ['serious', 'Needs key'],
+  /* Tanpa kelas warna: `.chip` polos memang sudah abu-abu netral. */
+  paid: ['', 'Dropped — paid'],
+};
+
+api('/api/culture/status').then((payload) => {
+  const host = document.getElementById('status');
+  clear(host);
+  if (!payload.ok) { host.append(BH.errorState(payload.error)); return; }
+
+  const wrap = el('div', { class: 'tablewrap' });
+  const table = el('table');
+  const head = el('tr');
+  ['Status', 'Source', 'Provides', 'Needs', 'Detail'].forEach((h) => head.append(el('th', { text: h })));
+  table.append(el('thead', {}, head));
+  const tbody = el('tbody');
+  for (const row of payload.data) {
+    const [tone, text] = TONE[row.status] || ['', row.status];
+    tbody.append(el('tr', {},
+      el('td', {}, el('span', { class: `chip ${tone}` }, el('span', { class: 'led' }), text)),
+      el('td', { class: 'strong', text: row.provider }),
+      el('td', { text: row.gives }),
+      el('td', { text: row.needs }),
+      el('td', { class: 'muted wrap', text: row.detail })));
+  }
+  table.append(tbody);
+  wrap.append(table);
+  host.append(wrap);
+});
+
+/* ----------------------------------------------------------- tangga lagu */
+const CHART = {
+  tracks: [['position', 'title', 'artist', 'album', 'rank', 'duration'],
+    { position: '#', title: 'Track', artist: 'Artist', album: 'Album', rank: 'Popularity', duration: 'Length' }],
+  albums: [['position', 'album', 'artist', 'type'],
+    { position: '#', album: 'Album', artist: 'Artist', type: 'Type' }],
+};
+const chartTabs = document.getElementById('chart-tabs');
+
+function loadChart(button) {
+  chartTabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+  const kind = button.dataset.kind;
+  const [columns, headers] = CHART[kind];
+  loadTable(document.getElementById('chart'), `/api/culture/music/chart?type=${kind}`, {
+    name: `chart-${kind}`, columns, headers, sort: 'position', dir: 'asc',
+  });
+}
+chartTabs.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (button) loadChart(button);
+});
+loadChart(chartTabs.querySelector('button.on'));
+
+/* --------------------------------------------------------- jadwal tayang */
+const tvDate = document.getElementById('tv-date');
+/* Tanggal lokal, bukan UTC: toISOString() menggeser satu hari untuk zona timur
+   Greenwich seperti Jakarta, dan jadwalnya jadi milik kemarin. */
+const hariIni = new Date();
+tvDate.value = [hariIni.getFullYear(),
+  String(hariIni.getMonth() + 1).padStart(2, '0'),
+  String(hariIni.getDate()).padStart(2, '0')].join('-');
+
+function loadSchedule() {
+  loadTable(document.getElementById('schedule'),
+    `/api/culture/tv/schedule?date=${encodeURIComponent(tvDate.value)}`, {
+      name: 'tv-schedule',
+      columns: ['airtime', 'show', 'episode', 'season', 'number', 'channel'],
+      headers: {
+        airtime: 'Time', show: 'Show', episode: 'Episode',
+        season: 'S', number: 'E', channel: 'Channel',
+      },
+      sort: 'airtime', dir: 'asc',
+      emptyText: 'Tidak ada episode yang tercatat tayang pada tanggal ini.',
+    });
+}
+tvDate.addEventListener('change', loadSchedule);
+loadSchedule();
+
+/* ------------------------------------------------------------- pencarian */
+const ROUTES = {
+  track: (q) => [`/api/culture/music/search?type=track&q=${q}`,
+    ['title', 'artist', 'album', 'rank', 'duration'],
+    { title: 'Track', artist: 'Artist', album: 'Album', rank: 'Popularity', duration: 'Length' }],
+  artist: (q) => [`/api/culture/music/search?type=artist&q=${q}`,
+    ['artist', 'fans', 'albums'],
+    { artist: 'Artist', fans: 'Fans', albums: 'Albums' }],
+  show: (q) => [`/api/culture/tv/search?q=${q}`,
+    ['show', 'premiered', 'status', 'rating', 'channel', 'genres'],
+    { show: 'Show', premiered: 'Premiered', status: 'Status', rating: 'Rating', channel: 'Channel', genres: 'Genres' }],
+  movie: (q) => [`/api/culture/movies/search?q=${q}`,
+    ['title', 'year', 'type', 'imdb_id'],
+    { title: 'Title', year: 'Year', type: 'Type', imdb_id: 'IMDb' }],
+};
+
+const kindGroup = document.getElementById('search-kind');
+let kind = 'track';
+kindGroup.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button) return;
+  kindGroup.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+  kind = button.dataset.kind;
+  search();
+});
+
+function search() {
+  const q = encodeURIComponent(document.getElementById('q').value.trim());
+  if (!q) return;
+  const [path, columns, headers] = ROUTES[kind](q);
+  loadTable(document.getElementById('search'), path, {
+    name: `search-${kind}`, columns, headers,
+    emptyText: 'Tidak ada yang cocok dengan kata kunci itu.',
+  });
+}
+document.getElementById('q-run').addEventListener('click', search);
+document.getElementById('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+search();
+</script>
+{% endblock %}

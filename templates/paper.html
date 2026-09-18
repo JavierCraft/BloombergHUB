@@ -1,0 +1,508 @@
+{% extends "layout.html" %}
+{% set title = "Paper Test" %}
+{% set lead = "Uji machine learning dengan uang virtual: apakah prediksinya benar, dan berapa win rate-nya." %}
+
+{% block body %}
+<div class="ml-page">
+
+<div class="row c4">
+  <div class="stat hero">
+    <span class="label">Win rate</span>
+    <span class="value" id="t-win">—</span>
+    <span class="foot" id="t-win-foot">belum ada posisi selesai</span>
+  </div>
+  <div class="stat">
+    <span class="label">ROI · P/L (virtual)</span>
+    <span class="value sm" id="t-roi">—</span>
+    <span class="foot" id="t-roi-foot"></span>
+  </div>
+  <div class="stat">
+    <span class="label">Positions</span>
+    <span class="value sm" id="t-pos">—</span>
+    <span class="foot" id="t-pos-foot"></span>
+  </div>
+  <div class="stat">
+    <span class="label">Brier: model vs market</span>
+    <span class="value sm" id="t-brier">—</span>
+    <span class="foot" id="t-brier-foot">pada prediksi yang sudah selesai</span>
+  </div>
+</div>
+
+<div class="callout info" style="margin-top:4px">
+  <span class="bar"></span>
+  <div class="body"><b>Verdict. </b><span id="t-verdict">Memuat…</span></div>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Run the paper test</h2>
+      <div class="sub">Settle → prediksi → buka posisi virtual bila EV model mencapai ambang. Tidak ada order sungguhan.</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="width:130px">
+        <label for="s-days">Max days left</label>
+        <input id="s-days" type="number" min="0.1" max="30" step="0.5" value="14">
+      </div>
+      <div class="field" style="width:130px">
+        <label for="s-minev">Min EV (%)</label>
+        <input id="s-minev" type="number" min="0" max="200" step="1" value="5">
+      </div>
+      <div class="field" style="width:130px">
+        <label for="s-stake">Stake ($ virtual)</label>
+        <input id="s-stake" type="number" min="1" max="10000" step="1" value="10">
+      </div>
+      <div class="field" style="width:180px">
+        <label for="s-source">Source</label>
+        <select id="s-source">
+          <option value="all" selected>Semua sumber</option>
+          <option value="polymarket">Polymarket</option>
+          <option value="limitless">Limitless (USDC)</option>
+          <option value="manifold">Manifold (uang main)</option>
+        </select>
+      </div>
+      <div class="field" style="width:150px">
+        <label for="s-news">News features</label>
+        <select id="s-news">
+          <option value="1" selected>Catat</option>
+          <option value="0">Lewati (lebih cepat)</option>
+        </select>
+      </div>
+      <button id="s-scan" type="button">Scan now</button>
+      <button id="s-settle" class="quiet" type="button">Settle now</button>
+    </div>
+    <div id="s-job"></div>
+    <p class="sub" id="s-auto" style="margin-top:12px"></p>
+  </div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header><div class="grow"><h2>Equity curve</h2><div class="sub">P/L kumulatif posisi virtual yang sudah selesai</div></div></header>
+    <div class="body" id="t-equity"></div>
+  </section>
+  <section class="card">
+    <header><div class="grow"><h2>Calibration</h2><div class="sub">Prediksi model yang sudah selesai: dibilang X%, terjadi berapa %?</div></div></header>
+    <div class="body" id="t-calib"></div>
+  </section>
+</div>
+
+<section class="card">
+  <header><div class="grow"><h2>By time to deadline</h2><div class="sub">Apakah model lebih benar saat tenggat makin mepet?</div></div></header>
+  <div class="body-flush" id="t-buckets"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow"><h2>Positions</h2><div class="sub">Terbuka dan selesai · berkas: data/ml/paper/positions.jsonl dan ringkasan.txt</div></div>
+    <div class="tabs" id="t-pos-tabs">
+      <button class="on" data-view="open" type="button">Open</button>
+      <button data-view="settled" type="button">Settled</button>
+      <button data-view="predictions" type="button">Predictions</button>
+    </div>
+  </header>
+  <div class="body-flush" id="t-ledger"></div>
+</section>
+
+<section class="card">
+  <header><div class="grow"><h2>Does news add information?</h2><div class="sub">Diuji dari prediksi yang sudah selesai dan membawa fitur berita saat dibuat</div></div></header>
+  <div class="body" id="t-news"></div>
+</section>
+
+<section class="card" id="model-card">
+  <header>
+    <div class="grow">
+      <h2>Machine learning model</h2>
+      <div class="sub">Dilatih dari pasar yang sudah selesai, dinilai pada pasar yang tidak pernah dilihatnya — melawan harga pasar itu sendiri</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="width:170px">
+        <label for="m-max">Markets to fetch</label>
+        <input id="m-max" type="number" min="100" max="3000" step="100" value="600">
+        <span class="help">yang sudah tersimpan tidak diambil ulang</span>
+      </div>
+      <div class="field" style="width:210px">
+        <label for="m-src">Training sources</label>
+        <select id="m-src">
+          <option value="manifold,polymarket" selected>Manifold + Polymarket</option>
+          <option value="manifold">Manifold saja</option>
+          <option value="polymarket">Polymarket saja</option>
+        </select>
+      </div>
+      <button id="m-train" type="button">Train model</button>
+    </div>
+    <div id="m-job"></div>
+    <div id="m-report" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<details class="explain">
+  <summary>Cara membaca win rate, break-even, dan Brier</summary>
+  <div class="inner">
+    <p><b>Win rate saja menyesatkan.</b> Membeli favorit seharga 85¢ menang 85% dari waktu dan tidak
+    menghasilkan apa-apa. Yang penting adalah selisih win rate dengan <b>rata-rata harga masuk</b>
+    (break-even). Nilai z di tabel mengukur apakah selisih itu lebih besar dari yang bisa dihasilkan
+    kebetulan: di atas 2 berarti kecil kemungkinan kebetulan.</p>
+    <p><b>Brier</b> mengukur ketepatan peluang: (peluang − hasil)², dirata-ratakan. Makin kecil makin
+    tepat. Model dibandingkan dengan harga pasar pada prediksi yang sama — kalau model tidak lebih
+    tepat dari harga, keuntungan posisinya kemungkinan besar keberuntungan.</p>
+    <p><b>Benar atau salah</b> dinilai dua cara: <i>arah</i> (model bilang naik dari harga dan pasar
+    selesai YES, atau turun dan selesai NO) dan <i>pemenang</i> (peluang model di atas 50% untuk sisi
+    yang menang). Keduanya ada di tabel per sisa waktu.</p>
+    <p>Paper test butuh waktu: hasil pertama muncul saat pasar dengan tenggat terdekat diselesaikan,
+    dan kesimpulan butuh puluhan hingga ratusan posisi. Nyalakan <code>BH_PAPER_AUTOSCAN_MIN=30</code>
+    di <code>.env</code> supaya scan berjalan sendiri, atau jadwalkan <code>python run.py paper --scan</code>.</p>
+  </div>
+</details>
+
+<section class="card">
+  <header><div class="grow"><h2>Reset</h2><div class="sub">Memindahkan buku besar ke arsip — tidak ada yang dihapus</div></div></header>
+  <div class="body"><button id="t-reset" class="quiet" type="button">Archive ledger</button></div>
+</section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, load, clear, renderTable, lineChart, reliabilityChart, errorState, toast } = BH;
+const ml = BH.ml;
+let ledger = {positions: [], predictions: []};
+let view = 'open';
+
+// ------------------------------------------------------------------ summary
+function renderSummary(s) {
+  const o = s.overall || {};
+  const so = (s.shadow || {}).overall || {};
+  if (o.n) {
+    document.getElementById('t-win').textContent = `${(o.win_rate * 100).toFixed(1)}%`;
+    document.getElementById('t-win-foot').textContent =
+      `${o.n} posisi · break-even ${(o.avg_entry * 100).toFixed(1)}% · selisih ${ml.signed(o.edge_pp, 1, ' poin')}${o.z != null ? ` · z ${ml.signed(o.z, 1, '')}` : ''}`
+      + (so.n ? ` · bayangan ${(so.win_rate * 100).toFixed(1)}% dari ${so.n} prediksi` : '');
+  } else if (so.n) {
+    document.getElementById('t-win').textContent = `${(so.win_rate * 100).toFixed(1)}%`;
+    document.getElementById('t-win-foot').textContent =
+      `bayangan: ${so.n} prediksi berarah · break-even ${(so.avg_entry * 100).toFixed(1)}% · selisih ${ml.signed(so.edge_pp, 1, ' poin')}`;
+  } else {
+    document.getElementById('t-win').textContent = '—';
+    document.getElementById('t-win-foot').textContent = 'belum ada posisi atau prediksi berarah yang selesai';
+  }
+  document.getElementById('t-roi').textContent = o.n ? ml.signed(o.roi_pct) : '—';
+  document.getElementById('t-roi-foot').textContent = o.n ? `P/L ${ml.money(o.pnl)} dari ${ml.money(o.staked)} · drawdown ${ml.money(s.max_drawdown)}` : '';
+  const p = s.positions || {};
+  document.getElementById('t-pos').textContent = `${p.settled ?? 0} selesai`;
+  document.getElementById('t-pos-foot').textContent = `${p.open ?? 0} terbuka · ${p.void ?? 0} batal · ${(s.predictions || {}).total ?? 0} prediksi tercatat`;
+  const pm = (s.predictions || {}).metrics || {};
+  document.getElementById('t-brier').textContent = pm.brier_model != null ? `${pm.brier_model} / ${pm.brier_market}` : '—';
+  document.getElementById('t-brier-foot').textContent = pm.n
+    ? `${pm.n} prediksi · arah benar ${pm.direction_accuracy != null ? (pm.direction_accuracy * 100).toFixed(0) + '%' : '—'} · pemenang benar ${(pm.accuracy_model * 100).toFixed(0)}%`
+    : 'belum ada prediksi yang selesai';
+  document.getElementById('t-verdict').textContent =
+    (s.verdict || '') + (s.concentration_note ? ` ${s.concentration_note}` : '');
+
+  const eq = document.getElementById('t-equity');
+  clear(eq);
+  if ((s.equity_curve || []).length >= 2) {
+    lineChart(eq, [{x: 'mulai', y: 0}, ...s.equity_curve], {seriesName: 'P/L kumulatif', baseline: 0, height: 230,
+      tickFormat: (v) => `$${BH.compact(v)}`});
+  } else {
+    eq.append(el('div', {class: 'empty', text: 'Grafik muncul setelah minimal dua posisi selesai.'}));
+  }
+
+  const cal = document.getElementById('t-calib');
+  clear(cal);
+  const bins = (s.predictions || {}).calibration?.bins || [];
+  if (bins.some((b) => b.count > 0)) reliabilityChart(cal, bins, {height: 240});
+  else cal.append(el('div', {class: 'empty', text: 'Kalibrasi muncul setelah prediksi pertama selesai.'}));
+
+  const buckets = document.getElementById('t-buckets');
+  clear(buckets);
+  const predBy = new Map(((s.predictions || {}).by_bucket || []).map((r) => [r.bucket, r]));
+  const posBy = new Map((s.by_bucket || []).map((r) => [r.group, r]));
+  const shadowBy = new Map(((s.shadow || {}).by_bucket || []).map((r) => [r.group, r]));
+  const order = ['≤1 hari', '1–3 hari', '3–7 hari', '7–14 hari', '>14 hari', 'tidak diketahui'];
+  const names = [...new Set([...posBy.keys(), ...predBy.keys(), ...shadowBy.keys()])]
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const rate = (r) => (r && r.n ? `${(r.win_rate * 100).toFixed(1)}% / ${(r.avg_entry * 100).toFixed(1)}%` : '—');
+  const rows = names.map((b) => {
+    const t = posBy.get(b) || {};
+    const q = predBy.get(b) || {};
+    const sh = shadowBy.get(b) || {};
+    return {
+      bucket: b,
+      positions: t.n ?? 0, win_rate: rate(t), roi_pct: t.n ? t.roi_pct : null,
+      shadow_n: sh.n ?? 0, shadow_rate: rate(sh), shadow_edge: sh.n ? sh.edge_pp : null,
+      predictions: q.n ?? 0,
+      direction: q.direction_accuracy != null ? `${(q.direction_accuracy * 100).toFixed(0)}%` : '—',
+      brier: q.n ? `${q.brier_model} / ${q.brier_market}` : '—',
+    };
+  });
+  const table = el('div');
+  buckets.append(table);
+  renderTable(table, rows, ['bucket', 'positions', 'win_rate', 'roi_pct', 'shadow_n', 'shadow_rate', 'shadow_edge', 'predictions', 'direction', 'brier'], {
+    name: 'paper-buckets', signed: ['roi_pct', 'shadow_edge'],
+    headers: {bucket: 'Time left at entry', positions: 'Positions', win_rate: 'Win / break-even', roi_pct: 'ROI %',
+      shadow_n: 'Shadow trades', shadow_rate: 'Shadow win / break-even', shadow_edge: 'Shadow edge (pp)',
+      predictions: 'Settled predictions', direction: 'Direction right', brier: 'Brier model / market'},
+    emptyText: 'Belum ada hasil. Tabel ini terisi saat pasar pertama yang diprediksi selesai.',
+  });
+  if ((s.shadow || {}).note) {
+    buckets.append(el('p', {class: 'sub', style: 'padding:12px 18px', text:
+      `${s.shadow.note} Prediksi tanpa arah: ${s.shadow.flat ?? 0}.`}));
+  }
+
+  renderNewsSignal(s.news_signal || {});
+  const set = s.settings || {};
+  document.getElementById('s-auto').textContent = set.autoscan_min
+    ? `Auto-scan aktif: setiap ${set.autoscan_min} menit.`
+    : 'Auto-scan mati. Isi BH_PAPER_AUTOSCAN_MIN=30 di .env untuk scan otomatis, atau jadwalkan "python run.py paper --scan".';
+}
+
+function renderNewsSignal(n) {
+  const host = clear(document.getElementById('t-news'));
+  if (!n.ready) {
+    host.append(el('p', {text: n.note || 'Belum cukup data.'}));
+    host.append(el('div', {class: 'meter'}, el('i', {style: `width:${Math.min(100, ((n.n || 0) / (n.needed || 60)) * 100)}%`})));
+    return;
+  }
+  const facts = el('dl', {class: 'facts'});
+  const row = (k, v) => facts.append(el('dt', {text: k}), el('dd', {text: v}));
+  row('Prediksi diuji', String(n.n));
+  row('Log loss: model saja', String(n.log_loss_model_only));
+  row('Log loss: model + berita', String(n.log_loss_with_news));
+  row('Perbaikan', String(n.improvement));
+  host.append(facts, el('p', {text: n.verdict}));
+}
+
+// ------------------------------------------------------------------- ledger
+function renderLedger() {
+  const host = clear(document.getElementById('t-ledger'));
+  const table = el('div');
+  host.append(table);
+  if (view === 'predictions') {
+    renderTable(table, ledger.predictions.map((p) => ({
+      made_at: BH.stampUTC(p.made_at), question: p.question, source: p.source, bucket: p.bucket,
+      market: ml.pct(p.market_prob_yes), model: ml.pct(p.model_prob_yes), direction: p.direction,
+      best_ev_pct: p.best_ev_pct, news: p.news ? `${p.news.n_72h ?? 0} judul · ${p.news.tone_label || '—'}` : '—',
+      result: p.status === 'settled' ? (p.outcome === 1 ? 'YES' : 'NO') : p.status,
+      correct: p.status !== 'settled' ? '—'
+        : ((p.model_prob_yes > p.market_prob_yes) === (p.outcome === 1) ? 'benar' : 'salah'),
+    })), ['made_at', 'question', 'source', 'bucket', 'market', 'model', 'direction', 'best_ev_pct', 'news', 'result', 'correct'], {
+      name: 'paper-predictions', signed: ['best_ev_pct'],
+      headers: {made_at: 'Made (UTC)', question: 'Market', source: 'Source', bucket: 'Time left', market: 'Market P(YES)',
+        model: 'Model P(YES)', direction: 'Direction', best_ev_pct: 'Best EV %', news: 'News', result: 'Result', correct: 'Direction right?'},
+      emptyText: 'Belum ada prediksi. Latih model lalu jalankan scan.',
+    });
+    return;
+  }
+  const settled = view === 'settled';
+  const rows = ledger.positions.filter((p) => settled ? p.status !== 'open' : p.status === 'open');
+  renderTable(table, rows.map((p) => ({
+    opened: BH.stampUTC(p.opened_at), question: p.question, side: p.side_label, source: p.source,
+    entry: ml.cents(p.entry_price), model: ml.pct(p.model_prob_side), ev_pct: p.ev_pct,
+    stake: p.stake, deadline: p.deadline, left: p.status === 'open' ? ml.countdown(p.deadline) : p.bucket,
+    status: p.status, pnl: p.pnl, origin: p.origin, note: p.check_note || '',
+  })), settled
+    ? ['opened', 'question', 'side', 'source', 'entry', 'model', 'ev_pct', 'stake', 'status', 'pnl', 'left', 'origin']
+    : ['opened', 'question', 'side', 'source', 'entry', 'model', 'ev_pct', 'stake', 'left', 'origin', 'note'], {
+    name: settled ? 'paper-settled' : 'paper-open', signed: ['ev_pct', 'pnl'],
+    headers: {opened: 'Opened (UTC)', question: 'Market', side: 'Side', source: 'Source', entry: 'Entry',
+      model: 'Model P(side)', ev_pct: 'EV %', stake: 'Stake $', deadline: 'Deadline', left: settled ? 'Time left at entry' : 'Time left',
+      status: 'Result', pnl: 'P/L $', origin: 'Origin', note: 'Last check'},
+    emptyText: settled ? 'Belum ada posisi yang selesai.' : 'Tidak ada posisi terbuka.',
+  });
+}
+
+document.getElementById('t-pos-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  view = b.dataset.view;
+  document.querySelectorAll('#t-pos-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  renderLedger();
+});
+
+async function refreshAll() {
+  const [summary, book] = await Promise.all([api('/api/paper/summary'), api('/api/paper/ledger?limit=500')]);
+  if (summary.ok && summary.data && !Array.isArray(summary.data)) renderSummary(summary.data);
+  else if (!summary.ok) document.getElementById('t-verdict').textContent = summary.error?.message || 'Ringkasan gagal dimuat.';
+  if (book.ok && book.data && !Array.isArray(book.data)) { ledger = book.data; renderLedger(); }
+}
+
+// --------------------------------------------------------------------- jobs
+function jobBox(host, job, label) {
+  clear(host);
+  if (!job) return;
+  const running = job.state === 'queued' || job.state === 'running';
+  const width = job.total ? Math.round((job.done / job.total) * 100) : 0;
+  const bar = el('div', {class: `bar ${running && !job.total ? 'indeterminate' : ''}`}, el('i', {style: `width:${running ? width : 100}%`}));
+  const text = running
+    ? `${label}: ${job.stage} ${job.total ? `${job.done}/${job.total}` : ''} · ${job.message || ''} · ${job.elapsed_s}s`
+    : job.state === 'done' ? `${label} selesai dalam ${job.elapsed_s}s.` : `${label} gagal: ${job.error}`;
+  host.append(el('div', {class: 'job'}, bar, el('span', {class: job.state === 'failed' ? 'stale' : 'sub', text})));
+  if (job.state === 'done' && job.result) {
+    const r = job.result;
+    if (r.verdict) host.append(el('p', {text: r.verdict}));
+    if (r.opened_count != null) {
+      host.append(el('p', {text: `Dipindai ${r.scanned} pasar · ${r.with_model} dinilai model · ${r.predictions_logged} prediksi baru · ${r.opened_count} posisi dibuka · ${(r.settled || {}).settled_positions ?? 0} posisi diselesaikan.`}));
+      for (const f of r.failed || []) host.append(el('div', {class: 'stale', text: `${f.source}: ${f.reason}`}));
+      if (r.concentration_note) host.append(el('div', {class: 'stale', text: r.concentration_note}));
+    }
+    if (r.ok === false && r.reason) host.append(el('div', {class: 'stale', text: r.reason}));
+  }
+}
+
+let polling = null;
+async function poll() {
+  const status = await api('/api/ml/status');
+  if (!status.ok) return;
+  const d = status.data;
+  jobBox(document.getElementById('s-job'), d.scan_job, 'Scan');
+  jobBox(document.getElementById('m-job'), d.train_job, 'Pelatihan');
+  const running = [d.scan_job, d.train_job].some((j) => j && (j.state === 'queued' || j.state === 'running'));
+  if (!running && polling) {
+    clearInterval(polling);
+    polling = null;
+    refreshAll();
+    loadReport();
+  }
+  return running;
+}
+function startPolling() { if (!polling) polling = setInterval(poll, 1500); poll(); }
+
+document.getElementById('s-scan').addEventListener('click', async () => {
+  const payload = await api('/api/paper/scan', {method: 'POST', body: {
+    days: parseFloat(document.getElementById('s-days').value),
+    min_ev_pct: parseFloat(document.getElementById('s-minev').value),
+    stake: parseFloat(document.getElementById('s-stake').value),
+    source: document.getElementById('s-source').value,
+    with_news: document.getElementById('s-news').value === '1',
+  }});
+  if (!payload.ok) { clear(document.getElementById('s-job')).append(errorState(payload.error)); return; }
+  startPolling();
+});
+
+document.getElementById('s-settle').addEventListener('click', async () => {
+  const payload = await api('/api/paper/settle', {method: 'POST', body: {force: true}});
+  if (!payload.ok) { toast(payload.error?.message || 'Settle gagal.'); return; }
+  const d = payload.data;
+  toast(`Diperiksa ${d.checked_markets} pasar · ${d.settled_positions} posisi dan ${d.settled_predictions} prediksi selesai.`);
+  refreshAll();
+});
+
+document.getElementById('m-train').addEventListener('click', async () => {
+  const payload = await api('/api/ml/train', {method: 'POST', body: {
+    max_markets: parseInt(document.getElementById('m-max').value, 10),
+    sources: document.getElementById('m-src').value.split(','),
+  }});
+  if (!payload.ok) { clear(document.getElementById('m-job')).append(errorState(payload.error)); return; }
+  startPolling();
+});
+
+document.getElementById('t-reset').addEventListener('click', async () => {
+  if (!window.confirm('Pindahkan semua posisi dan prediksi ke folder arsip? Paper test mulai dari nol.')) return;
+  const payload = await api('/api/paper/reset', {method: 'POST', body: {confirm: 'ARSIPKAN'}});
+  toast(payload.ok ? `Diarsipkan ke ${payload.data.folder || '—'}` : (payload.error?.message || 'Gagal.'));
+  refreshAll();
+});
+
+// ------------------------------------------------------------------- report
+function renderReport(r, meta, host) {
+  if (!r || Array.isArray(r) || !r.model_id) {
+    host.append(el('div', {class: 'empty', text: 'Model belum dilatih. Tekan "Train model" — riwayat harga pasar yang sudah selesai akan diambil dulu (beberapa menit).'}));
+    return;
+  }
+  const c = (r.metrics || {}).contested || {};
+  const b = r.bootstrap || {};
+  host.append(el('div', {class: `callout ${r.beats_market ? 'info' : 'warn'}`}, el('span', {class: 'bar'}),
+    el('div', {class: 'body'}, el('b', {text: r.beats_market ? 'Lebih tepat dari pasar. ' : 'Belum terbukti. '}), r.verdict)));
+
+  const facts = el('dl', {class: 'facts', style: 'margin-top:14px'});
+  const row = (k, v) => facts.append(el('dt', {text: k}), el('dd', {text: v}));
+  const d = r.data || {};
+  row('Model', `${r.model_id} · dilatih ${BH.stampUTC(r.trained_at, true)} UTC`);
+  row('Data', `${d.rows} snapshot dari ${d.markets} pasar (${Object.entries(d.by_source || {}).map(([k, v]) => `${k} ${v}`).join(', ')}) · tenggat ${BH.stampUTC(d.first_deadline, true)} s.d. ${BH.stampUTC(d.last_deadline, true)}`);
+  row('Diuji', `${d.tested_markets} pasar / ${d.contested_rows} snapshot berharga 5–95% · ${d.folds} blok walk-forward`);
+  row('Brier model / pasar', `${c.brier_model} / ${c.brier_market} (skill ${c.brier_skill_vs_market})`);
+  row('Selisih Brier, rentang 90%', `${ml.signed(b.mean, 4, '')} [${ml.signed(b.low, 4, '')}, ${ml.signed(b.high, 4, '')}] · ${b.markets} pasar, ${b.reps} resample`);
+  row('Log loss model / pasar', `${c.log_loss_model} / ${c.log_loss_market}`);
+  row('Arah benar', c.direction_accuracy != null ? `${(c.direction_accuracy * 100).toFixed(1)}% dari ${c.direction_n}` : '—');
+  row('Akurasi pemenang model / pasar', `${(c.accuracy_model * 100).toFixed(1)}% / ${(c.accuracy_market * 100).toFixed(1)}%`);
+  host.append(facts);
+
+  const section = (title, sub) => { host.append(el('h3', {text: title, style: 'margin:22px 0 4px'}), el('p', {class: 'sub', text: sub})); const t = el('div'); host.append(t); return t; };
+
+  renderTable(section('Candidates', 'Semua kandidat pada data uji yang sama; yang log loss-nya terkecil dipilih.'),
+    Object.entries(r.candidates || {}).map(([name, v]) => ({
+      name: name + (name === r.algorithm ? ' ✓' : ''), brier: v.contested.brier_model, brier_market: v.contested.brier_market,
+      log_loss: v.contested.log_loss_model, log_loss_market: v.contested.log_loss_market,
+      direction: v.contested.direction_accuracy, auc: v.contested.auc_model,
+    })), ['name', 'brier', 'brier_market', 'log_loss', 'log_loss_market', 'direction', 'auc'], {
+      name: 'ml-candidates',
+      headers: {name: 'Candidate', brier: 'Brier', brier_market: 'Brier market', log_loss: 'Log loss',
+        log_loss_market: 'Log loss market', direction: 'Direction acc.', auc: 'AUC'},
+    });
+
+  const bt = r.backtest || {};
+  renderTable(section('Backtest on held-out predictions', bt.note || ''),
+    [{group: 'Semua', ...(bt.overall || {})}, ...(bt.by_bucket || []).map((x) => ({group: x.bucket, ...x})),
+      ...(bt.by_side || []).map((x) => ({group: `Sisi ${x.side}`, ...x}))].map((x) => ({
+      group: x.group, n: x.n, win_rate: x.n ? `${(x.win_rate * 100).toFixed(1)}%` : '—',
+      breakeven: x.n ? `${(x.avg_entry * 100).toFixed(1)}%` : '—', edge_pp: x.edge_pp, roi_pct: x.roi_pct, avg_ev_pct: x.avg_ev_pct,
+    })), ['group', 'n', 'win_rate', 'breakeven', 'edge_pp', 'roi_pct', 'avg_ev_pct'], {
+      name: 'ml-backtest', signed: ['edge_pp', 'roi_pct'],
+      headers: {group: 'Group', n: 'Trades', win_rate: 'Win rate', breakeven: 'Break-even', edge_pp: 'Edge (pp)', roi_pct: 'ROI %', avg_ev_pct: 'Avg model EV %'},
+    });
+
+  renderTable(section('Deadline effect (market only)', 'Per jenis pertanyaan dan sisa waktu: apakah harga YES dan harga favorit sesuai dengan yang benar-benar terjadi?'),
+    (r.deadline_effect || []).map((x) => ({
+      kind: x.kind_label || 'Semua pertanyaan', bucket: x.bucket, n: x.n, markets: x.markets,
+      yes: x.avg_yes_price != null ? `${(x.avg_yes_price * 100).toFixed(1)}% → ${(x.yes_rate * 100).toFixed(1)}%` : '—',
+      yes_gap_pp: x.yes_gap_pp ?? null, yes_reading: x.yes_reading || '',
+      fav: `${(x.avg_favorite_price * 100).toFixed(1)}% → ${(x.favorite_win_rate * 100).toFixed(1)}%`,
+      gap_pp: x.gap_pp, brier: `${x.brier_model} / ${x.brier_market}`, reading: x.reading,
+    })), ['kind', 'bucket', 'markets', 'n', 'yes', 'yes_gap_pp', 'yes_reading', 'fav', 'gap_pp', 'reading', 'brier'], {
+      name: 'ml-effect', signed: ['yes_gap_pp', 'gap_pp'], limit: 60,
+      headers: {kind: 'Question type', bucket: 'Time left', markets: 'Markets', n: 'Snapshots',
+        yes: 'YES price → happened', yes_gap_pp: 'YES gap (pp)', yes_reading: 'YES reading',
+        fav: 'Favourite price → won', gap_pp: 'Fav. gap (pp)', reading: 'Favourite reading', brier: 'Brier model / market'},
+    });
+
+  const co = r.coefficients || {};
+  renderTable(section('What the model corrects', co.note || ''),
+    (co.rows || []).map((x) => ({label: x.label, feature: x.feature, coef: x.coef, effect: x.effect})),
+    ['label', 'feature', 'coef', 'effect'], {
+      name: 'ml-coefficients', signed: ['coef'],
+      headers: {label: 'Feature', feature: 'Code', coef: 'Correction (log-odds / SD)', effect: 'Effect'},
+    });
+
+  const calWrap = el('div', {class: 'row c2', style: 'margin-top:18px'});
+  const calModel = el('div');
+  const calMarket = el('div');
+  calWrap.append(
+    el('section', {class: 'card'}, el('header', {}, el('div', {class: 'grow'}, el('h3', {text: 'Calibration · model'}))), el('div', {class: 'body'}, calModel)),
+    el('section', {class: 'card'}, el('header', {}, el('div', {class: 'grow'}, el('h3', {text: 'Calibration · market price'}))), el('div', {class: 'body'}, calMarket)));
+  host.append(calWrap);
+  reliabilityChart(calModel, (r.calibration_model || {}).bins || [], {height: 240});
+  reliabilityChart(calMarket, (r.calibration_market || {}).bins || [], {height: 240});
+
+  const ul = el('ul', {class: 'plan'});
+  for (const x of r.caveats || []) ul.append(el('li', {text: x}));
+  host.append(el('h3', {text: 'Caveats', style: 'margin:22px 0 4px'}), ul);
+}
+
+function loadReport() {
+  load(document.getElementById('m-report'), '/api/ml/report', renderReport, {skeletonRows: 4});
+}
+
+refreshAll();
+loadReport();
+poll().then((running) => { if (running) startPolling(); });
+setInterval(() => { if (!document.hidden && !polling) refreshAll(); }, 60000);
+</script>
+{% endblock %}

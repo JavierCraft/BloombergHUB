@@ -1,0 +1,352 @@
+{% extends "layout.html" %}
+{% set title = "Overview" %}
+{% set lead = "Machine learning, paper test, pasar dengan tenggat terdekat, dan kondisi semua sumber data — dalam satu halaman." %}
+
+{% block body %}
+
+<div class="row c4">
+  <div class="stat hero">
+    <span class="label">Total sources</span>
+    <span class="value">{{ counts.all }}</span>
+    <span class="foot">{{ counts.feed }} feed berita · {{ counts.api }} API data · {{ counts.registry }} integrasi · <a href="/sources">lihat semua →</a></span>
+  </div>
+  <div class="stat">
+    <span class="label">ML model</span>
+    <span class="value sm" id="o-model">—</span>
+    <span class="foot" id="o-model-foot">memuat…</span>
+  </div>
+  <div class="stat">
+    <span class="label">Paper test</span>
+    <span class="value sm" id="o-paper">—</span>
+    <span class="foot" id="o-paper-foot">memuat…</span>
+  </div>
+  <div class="stat">
+    <span class="label">ML signals · 3 days</span>
+    <span class="value" id="o-signals">—</span>
+    <span class="foot" id="o-signals-foot">memuat…</span>
+  </div>
+</div>
+
+<div class="callout info">
+  <span class="bar"></span>
+  <div class="body">
+    <b>Polymarket diblokir dari koneksi ini, tetapi pasar tetap tampil.</b>
+    Harga diambil dari <b>Limitless</b> (uang sungguhan, USDC) dan <b>Manifold</b> (uang main) — dengan EV,
+    IEP/IEV, dan model machine learning yang sama. Sumber setiap pasar selalu ditulis.
+  </div>
+</div>
+
+<section class="card" id="ml-card">
+  <header>
+    <div class="grow">
+      <h2>Machine learning · deadlines in the next 3 days</h2>
+      <div class="sub" id="ml-sub">Peluang menurut model, arah harga, dan EV untuk pasar yang segera berakhir. Klik baris untuk detail.</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <a class="sub" href="/deadlines">Deadline radar →</a>
+  </header>
+  <div class="body-flush" id="ml"></div>
+  <div class="body ml-detail" id="ml-detail" hidden>
+    <div class="ml-detail-head">
+      <h3 class="grow" id="ml-detail-title">Market</h3>
+      <button class="quiet sm" type="button" id="ml-detail-close">Close</button>
+    </div>
+    <div id="ml-detail-body"></div>
+  </div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Market snapshot</h2>
+        <div class="sub">Kripto, emas, kurs rupiah, sentimen, dan gempa terakhir</div>
+      </div>
+    </header>
+    <div class="body"><div class="ov-grid" id="snapshot"></div></div>
+  </section>
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Top stories · News ML</h2>
+        <div class="sub">Judul dari banyak sumber dikelompokkan jadi cerita, 24 jam terakhir</div>
+      </div>
+      <span class="sub" data-meta></span>
+      <a class="sub" href="/news">News →</a>
+    </header>
+    <div class="body-flush" id="stories"></div>
+  </section>
+</div>
+
+<section class="card" data-datahub="overview">
+  <header>
+    <div class="grow">
+      <h2>Public data</h2>
+      <div class="sub">Harga, kurs, perhatian publik, dan gempa — pilih sumbernya</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body" data-datahub-body></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Market activity today</h2>
+      <div class="sub">Dibaca dari blockchain Polygon, tempat transaksi Polymarket diselesaikan</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <button class="quiet sm" type="button" id="reload-market">Refresh</button>
+  </header>
+  <div class="body" id="market"></div>
+</section>
+
+<div class="row c4">
+  <div class="stat">
+    <span class="label">Integrations ready</span>
+    <span class="value" id="s-live">—</span>
+    <span class="foot">Bisa dibuka sekarang juga</span>
+  </div>
+  <div class="stat">
+    <span class="label">Needs setup</span>
+    <span class="value" id="s-degraded">—</span>
+    <span class="foot">Tinggal isi kunci atau unduh data</span>
+  </div>
+  <div class="stat">
+    <span class="label">Blocked</span>
+    <span class="value" id="s-blocked">—</span>
+    <span class="foot">Tidak bisa diakses dari sini</span>
+  </div>
+  <div class="stat">
+    <span class="label">Can move funds</span>
+    <span class="value" id="s-money">—</span>
+    <span class="foot">Dari total integrasi</span>
+  </div>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Integration health</h2>
+      <div class="sub">Diurutkan dari yang paling butuh perhatian · status feed berita dan API data ada di <a href="/sources">Sources</a></div>
+    </div>
+    <span class="sub" data-meta></span>
+    <button class="quiet sm" type="button" id="reload-health">Re-check</button>
+  </header>
+  <div class="body-flush" id="health"></div>
+</section>
+
+<details class="explain">
+  <summary>Cara membaca halaman ini</summary>
+  <div class="inner">
+    <p><b>ML model</b> adalah model tenggat yang dilatih dari ribuan pasar yang sudah selesai. Ia
+    memperkirakan peluang YES dengan harga pasar sebagai titik awal, lalu mengoreksinya dari sisa waktu,
+    umur pasar, dan gerak harga. Label "belum terbukti" berarti pada data uji ia belum meyakinkan lebih
+    tepat daripada harga pasar — pakai sebagai bahan periksa, bukan sinyal.</p>
+    <p><b>Paper test</b> mencatat setiap prediksi sebelum hasilnya diketahui, membuka posisi dengan uang
+    virtual kalau EV model cukup besar, lalu mencocokkan dengan hasil sebenarnya: benar atau salah, win
+    rate, dan untung-rugi. Scan berjalan otomatis tiap jam selama aplikasi hidup.</p>
+    <p><b>Integration health</b> menguji paket Python, kunci API, dan apakah alamatnya bisa dihubungi dari
+    komputer ini. Hasilnya disimpan lima menit supaya halaman tidak lambat.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, load, clear } = BH;
+const ml = BH.ml;
+
+const STATUS = {
+  live:        ['good', 'Live'],
+  ready:       ['good', 'Ready'],
+  rate_limited:['serious', 'Rate limited'],
+  upstream_down:['serious', 'Upstream down'],
+  missing_dep: ['warning', 'No package'],
+  no_credential:['warning', 'No key'],
+  not_cloned:  ['warning', 'Not downloaded'],
+  blocked:     ['critical', 'Blocked'],
+};
+
+// ------------------------------------------------------------ ML + paper tiles
+api('/api/ml/status').then((p) => {
+  const model = p.ok ? p.data.model : null;
+  const value = document.getElementById('o-model');
+  const foot = document.getElementById('o-model-foot');
+  if (!model) { value.textContent = 'Tidak tersedia'; foot.textContent = p.error?.message || ''; return; }
+  if (!model.trained) { value.textContent = 'Belum dilatih'; foot.textContent = 'Latih di halaman Paper Test'; return; }
+  value.textContent = model.beats_market ? 'Lebih tepat dari pasar' : 'Belum terbukti';
+  value.style.color = model.beats_market ? 'var(--good)' : 'var(--serious)';
+  foot.textContent = `Brier ${model.brier_model} lawan pasar ${model.brier_market} · ${model.tested_markets} pasar uji · ${model.algorithm}`;
+});
+
+api('/api/paper/summary').then((p) => {
+  const value = document.getElementById('o-paper');
+  const foot = document.getElementById('o-paper-foot');
+  if (!p.ok) { value.textContent = '—'; foot.textContent = p.error?.message || ''; return; }
+  const d = p.data;
+  const o = d.overall || {};
+  const shadow = (d.shadow || {}).overall || {};
+  if (o.n) {
+    value.textContent = `Win rate ${(o.win_rate * 100).toFixed(0)}%`;
+    foot.textContent = `${o.wins}/${o.n} posisi menang · P&L $${Number(o.pnl).toFixed(2)} · ${d.positions.open} masih terbuka`;
+  } else if (shadow.n) {
+    value.textContent = `Arah benar ${(shadow.win_rate * 100).toFixed(0)}%`;
+    foot.textContent = `${shadow.n} prediksi selesai · ${d.positions.open} posisi terbuka`;
+  } else {
+    value.textContent = `${d.positions.open} posisi terbuka`;
+    foot.textContent = `${d.predictions.total} prediksi tercatat, menunggu hasil · ${d.positions.settled} selesai`;
+  }
+  foot.append(' · ', el('a', {href: '/paper', text: 'detail →'}));
+});
+
+// ------------------------------------------------------------- ML radar (3 days)
+function renderMl(data, meta, host) {
+  document.getElementById('o-signals').textContent = String(data.positive_ev ?? 0);
+  document.getElementById('o-signals-foot').textContent =
+    `EV model positif dari ${data.with_model ?? 0} pasar yang dinilai · ${data.count ?? 0} pasar berakhir ≤ 3 hari`;
+  const down = (data.failed || []).map((f) => f.source);
+  document.getElementById('ml-sub').textContent = `${ml.radarSummary(data)}`
+    + (down.length ? ` · tidak menjawab: ${down.join(', ')}` : '') + ' · klik baris untuk EV, IEP/IEV, berita, dan paper trade';
+  ml.radar(host, data, {
+    name: 'overview-deadlines', limit: 15, quietFailures: true, note: false, onlyModelled: true,
+    detailBody: document.getElementById('ml-detail-body'),
+    onPick: (m) => {
+      const detail = document.getElementById('ml-detail');
+      detail.hidden = false;
+      document.getElementById('ml-detail-title').textContent = `${m.question} · ${ml.sourceLabel(m.source)} · ${m.time_left} lagi`;
+      requestAnimationFrame(() => detail.scrollIntoView({behavior: 'smooth', block: 'start'}));
+    },
+  });
+}
+const refreshMl = () => load(document.getElementById('ml'), '/api/deadlines?days=3&limit=60', renderMl, {skeletonRows: 6});
+document.getElementById('ml-detail-close').addEventListener('click', () => { document.getElementById('ml-detail').hidden = true; });
+
+// ---------------------------------------------------------------- snapshot
+function tile(label, value, foot, tone) {
+  return el('div', {class: 'ov-tile'},
+    el('span', {class: 'label', text: label}),
+    el('span', {class: `value ${tone || ''}`, text: value}),
+    el('span', {class: 'foot', text: foot || ''}));
+}
+const usd = (n, d = 0) => (n == null ? '—' : `$${Number(n).toLocaleString('en-US', {maximumFractionDigits: d})}`);
+const chg = (n) => (n == null ? '' : `${n > 0 ? '+' : ''}${Number(n).toFixed(2)}% 24 jam`);
+
+async function refreshSnapshot() {
+  const host = document.getElementById('snapshot');
+  const codes = ['coingecko-prices', 'gold-api', 'frankfurter', 'fear-greed', 'bmkg-gempa'];
+  const results = await Promise.all(codes.map((c) => api(`/api/datahub/${c}`)));
+  const rows = Object.fromEntries(codes.map((c, i) => [c, results[i].ok ? results[i].data.rows : null]));
+  clear(host);
+  const crypto = rows['coingecko-prices'] || [];
+  for (const sym of ['BTC', 'ETH', 'SOL']) {
+    const r = crypto.find((x) => x.asset === sym);
+    host.append(tile(sym, r ? usd(r.usd, r.usd < 10 ? 4 : 0) : '—', r ? chg(r.change_24h_pct) : 'CoinGecko tidak menjawab',
+      r ? (r.change_24h_pct > 0 ? 'pos' : r.change_24h_pct < 0 ? 'neg' : '') : ''));
+  }
+  const gold = (rows['gold-api'] || []).find((x) => x.symbol === 'XAU');
+  host.append(tile('Gold (oz)', gold ? usd(gold.price_usd, 2) : '—', gold ? `Gold API · ${String(gold.updated || '').slice(0, 16).replace('T', ' ')} UTC` : 'tidak menjawab'));
+  const idr = (rows['frankfurter'] || []).find((x) => x.pair === 'USD/IDR');
+  host.append(tile('USD / IDR', idr ? Number(idr.rate).toLocaleString('id-ID', {maximumFractionDigits: 0}) : '—', idr ? `ECB · ${idr.date}` : 'tidak menjawab'));
+  const fg = (rows['fear-greed'] || [])[0];
+  host.append(tile('Crypto Fear & Greed', fg ? String(fg.value) : '—', fg ? `${fg.reading} · ${fg.date}` : 'tidak menjawab'));
+  const quake = (rows['bmkg-gempa'] || [])[0];
+  host.append(tile('Gempa BMKG terakhir', quake ? `M${quake.magnitude}` : '—', quake ? `${quake.region} · ${quake.time_wib}` : 'tidak menjawab'));
+}
+
+// ------------------------------------------------------------------ stories
+function renderStories(data, meta, host) {
+  const stories = (data && data.stories) || [];
+  if (!stories.length) { host.append(el('div', {class: 'empty', text: 'Belum ada cerita yang diliput beberapa sumber dalam 24 jam.'})); return; }
+  const list = el('div', {class: 'ov-list'});
+  for (const s of stories.slice(0, 8)) {
+    list.append(el('a', {href: /^https?:/.test(s.url || '') ? s.url : '#', target: '_blank', rel: 'noopener'},
+      el('span', {class: 't', text: s.title}),
+      el('span', {class: 'm'},
+        el('span', {class: 'pill', text: `${s.source_count} sumber`}),
+        el('span', {text: `${s.size} judul`}),
+        el('span', {text: (s.sources || []).slice(0, 3).join(' · ')}),
+        el('span', {text: s.last_seen ? ml.timeAgo(s.last_seen) : ''}))));
+  }
+  host.append(list, el('p', {class: 'sub radar-note', text: `${data.headlines_considered} judul dianalisis · ${data.note}`}));
+}
+
+// --------------------------------------------------------------- health
+function healthView(data, meta, target) {
+  document.getElementById('s-live').textContent = data.summary.live;
+  document.getElementById('s-degraded').textContent = data.summary.degraded;
+  document.getElementById('s-blocked').textContent = data.summary.blocked;
+
+  const wrap = el('div', { class: 'tablewrap' });
+  const table = el('table');
+  const head = el('tr');
+  ['Status', 'Source', 'Category', 'Upstream', 'Detail'].forEach((h) => head.append(el('th', { text: h })));
+  table.append(el('thead', {}, head));
+
+  const tbody = el('tbody');
+  for (const row of data.sources) {
+    const [tone, text] = STATUS[row.status] || ['', row.status];
+    const tr = el('tr');
+    tr.append(el('td', {}, el('span', { class: `chip ${tone}` }, el('span', { class: 'led' }), text)));
+
+    const name = el('td', { class: 'strong' }, row.label);
+    if (row.money_movement) name.append(document.createTextNode(' '), el('span', { class: 'pill alert', text: 'funds' }));
+    tr.append(name);
+
+    tr.append(el('td', { class: 'muted', text: row.category_label || row.category }));
+    tr.append(el('td', {}, el('a', {
+      href: `https://github.com/${row.upstream}`, target: '_blank', rel: 'noopener', text: row.upstream,
+    })));
+    tr.append(el('td', { class: 'muted wrap', text: row.detail || '' }));
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  wrap.append(table);
+  target.append(wrap);
+  target.append(el('div', { class: 'tablebar' },
+    el('span', { class: 'grow', text: `${data.sources.length} integrations · checked in ${(data.elapsed_ms / 1000).toFixed(1)}s` })));
+}
+
+function marketView(data, meta, target) {
+  const s = data.summary;
+  const cards = el('div', { class: 'row c4' });
+  for (const [label, value, foot] of [
+    ['Positions opened', s.position_splits, 'Uang ditukar jadi posisi'],
+    ['Positions closed', s.position_merges, 'Posisi ditukar balik jadi uang'],
+    ['Redemptions', s.redemptions, 'Hasil pasar dibayarkan'],
+    ['Markets resolved', s.markets_resolved, 'Hasil akhir ditetapkan'],
+  ]) {
+    cards.append(el('div', { class: 'stat' },
+      el('span', { class: 'label', text: label }),
+      el('span', { class: 'value sm', text: BH.compact(value ?? 0) }),
+      el('span', { class: 'foot', text: foot })));
+  }
+  target.append(cards);
+  target.append(el('div', { class: 'callout', style: 'margin-top:16px' },
+    el('span', { class: 'bar' }),
+    el('div', { class: 'body' },
+      el('b', { text: `${data.blocks_scanned} blok terakhir. ` }),
+      document.createTextNode('Kontrak ini juga dipakai layanan lain, jadi angkanya adalah batas atas aktivitas Polymarket. Nama pasarnya tidak bisa ditampilkan karena datanya hanya ada di situs yang terblokir.'))));
+}
+
+const refreshHealth = (force) =>
+  load(document.getElementById('health'), `/api/health${force ? '?refresh=1' : ''}`, healthView, { skeletonRows: 7 });
+const refreshMarket = () =>
+  load(document.getElementById('market'), '/api/polygon/settlement?blocks=60', marketView, { skeletonRows: 3 });
+
+document.getElementById('reload-health').addEventListener('click', () => refreshHealth(true));
+document.getElementById('reload-market').addEventListener('click', refreshMarket);
+
+api('/api/registry').then((p) => {
+  if (p.ok) document.getElementById('s-money').textContent = `${p.data.counts.money_movement} dari ${p.data.counts.total}`;
+});
+
+refreshMl();
+refreshSnapshot();
+load(document.getElementById('stories'), '/api/news/ml/digest?hours=24', renderStories, {skeletonRows: 5});
+refreshHealth(false);
+refreshMarket();
+setInterval(() => { if (!document.hidden) { refreshMl(); refreshSnapshot(); } }, 180000);
+</script>
+{% endblock %}

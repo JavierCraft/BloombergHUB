@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title|default('Ringkasan') }} · Bloomberg Hub</title>
+<link rel="stylesheet" href="{{ asset('css/app.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%231B1B1F'/><text x='16' y='22' font-family='system-ui' font-size='16' font-weight='700' fill='%23fff' text-anchor='middle'>B</text></svg>">
+<style>
+  /* Ditulis di sini, bukan di berkas CSS terpisah, supaya layar pembuka sudah
+     tergambar sebelum berkas lain selesai diunduh. Tanpa ini akan terlihat
+     kedipan halaman kosong lebih dulu. */
+  #splash{position:fixed;inset:0;z-index:200;display:grid;place-items:center;
+    background:#131316;color:#fff;transition:opacity .4s ease,visibility .4s}
+  #splash.pergi{opacity:0;visibility:hidden;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div id="splash" role="status" aria-live="polite">
+  <div class="splash-isi">
+    <div class="splash-logo">
+      <span class="mark">B</span>
+      <span class="nama">Bloomberg&nbsp;Hub</span>
+    </div>
+    <p class="splash-kutipan" id="splash-kutipan"></p>
+    <p class="splash-sumber" id="splash-sumber"></p>
+    <div class="splash-bar"><i></i></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <span class="mark">B</span>
+      <span class="name">
+        <b>Bloomberg Hub</b>
+        <span>Prediction market research</span>
+      </span>
+    </div>
+
+    <nav>
+      {% for item in nav %}
+      <a href="{{ item.path }}" class="{% if page == item.id %}on{% endif %}"
+         title="{{ item.label }} — {{ item.hint }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round"><path d="{{ item.icon }}"/></svg>
+        <span>{{ item.label }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+
+    <div class="rail-foot">
+      <div class="line">
+        <span>Trading</span>
+        {% if trading_enabled %}
+        <span class="chip critical"><span class="led"></span>Open</span>
+        {% else %}
+        <span class="chip good"><span class="led"></span>Locked</span>
+        {% endif %}
+      </div>
+
+      <figure class="rail-kutipan" id="rail-kutipan">
+        <blockquote id="rail-teks"></blockquote>
+        <figcaption>Jim Simons - Renaissance Technologies</figcaption>
+      </figure>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button id="rail-toggle" class="icon-btn" type="button"
+              aria-label="Toggle sidebar" title="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+
+      <div class="heading">
+        <h1>{{ title|default('Ringkasan') }}</h1>
+        <p>{{ lead|default('') }}</p>
+      </div>
+
+      <button id="search-open" class="searchbar" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round"><path d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z"/></svg>
+        <span>Search anything…</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+
+      <div class="clocks">
+        <div class="clock">
+          <span class="kota">New York</span>
+          <b id="jam-ny">--:--:--</b>
+          <span class="tanggal" id="tgl-ny"></span>
+        </div>
+        <div class="clock">
+          <span class="kota">Jakarta</span>
+          <b id="jam-wib">--:--:--</b>
+          <span class="tanggal" id="tgl-wib"></span>
+        </div>
+      </div>
+
+      <div class="pulse">
+        <span class="block">Block <b id="pulse-block">…</b></span>
+        <span id="pulse-status" class="status-chips"></span>
+        <button id="theme" class="icon-btn" type="button" aria-label="Toggle theme"></button>
+      </div>
+    </header>
+
+    <main class="content">
+      {% block body %}{% endblock %}
+    </main>
+  </div>
+
+</div>
+
+<div class="cmdk" id="cmdk" hidden>
+  <div class="box">
+    <div class="cmdk-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round"><path d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z"/></svg>
+      <input id="cmdk-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Search pages, news, markets, or this page…">
+      <span class="cmdk-spin" id="cmdk-spin" hidden></span>
+    </div>
+    <div id="cmdk-list" class="cmdk-list"></div>
+    <div class="cmdk-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> select</span>
+      <span><kbd>Enter</kbd> open</span>
+      <span><kbd>Esc</kbd> close</span>
+      <span class="right" id="cmdk-info"></span>
+    </div>
+  </div>
+</div>
+
+<script>window.BH_NAV = {{ nav|tojson }};</script>
+<script src="{{ asset('js/hub.js') }}"></script>
+<script src="{{ asset('js/ml.js') }}"></script>
+<script src="{{ asset('js/datahub.js') }}"></script>
+<script src="{{ asset('js/monitor.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

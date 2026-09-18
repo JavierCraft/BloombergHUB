@@ -1,0 +1,58 @@
+# Bloomberg Hub — dependencies.
+#
+# Every entry below is a repo the audit marked green, or a direct dependency of
+# one. Anything archived or stale by more than a year is deliberately absent;
+# docs/AUDIT_SUMBER_DATA.md §3 lists what was removed and why.
+
+# === Core ===
+flask>=3.0
+pandas>=2.2
+polars>=1.0            # nflreadpy returns polars frames, not pandas
+requests>=2.31
+python-dotenv>=1.0
+rich>=13.0
+
+# === On-chain (the only open Polymarket path from a blocked connection) ===
+web3>=7.0
+eth-account>=0.11
+
+# === Sports ===
+soccerdata>=1.9        # probberechts/soccerdata — Understat + ESPN reachable
+nba_api>=1.10          # swar/nba_api
+statsbombpy>=1.13      # statsbomb/statsbombpy — open data
+nflreadpy>=0.1.5       # nflverse/nflreadpy — REPLACES archived nfl_data_py
+
+# === Tech ===
+huggingface-hub>=0.25  # huggingface/huggingface_hub
+
+# === Machine learning & paper test ===
+scikit-learn>=1.5      # deadline model, TF-IDF news relevance and story grouping
+joblib>=1.4            # saves the fitted model to data/ml/models
+numpy>=2.0
+
+# === LLM (optional) ===
+# Only used when ANTHROPIC_API_KEY is set; everything else runs without it.
+anthropic>=0.96
+
+# === Culture ===
+spotipy>=2.24          # spotipy-dev/spotipy
+tmdbsimple>=2.9        # celiao/tmdbsimple
+
+# === Optional ===
+# Trading. Only install when BH_ENABLE_TRADING=1 and you are on a network that
+# can reach clob.polymarket.com. This is the one package that touches keys.
+# py-clob-client>=2.0            # Polymarket/py-clob-client-v2 (NOT the archived v1)
+#
+# League of Legends via the Riot API. Needs RIOT_API_KEY.
+# cassiopeia>=5.0
+#
+# Extra league coverage.
+# sportsdataverse>=0.0.30
+
+# === Deliberately NOT installed ===
+# py-clob-client<2      archived, replaced by v2
+# nfl_data_py           archived 25 Sep 2025 -> nflreadpy
+# gdelt                 wrong package (linwoodc3); GDELT v2 is called directly
+# gdeltdoc              upstream unmaintained since Apr 2025; API called directly
+# billboard.py          25-month-stale HTML scraper
+# imdbpy / cinemagoer   lost live fetching to IMDb's WAF, Apr 2026

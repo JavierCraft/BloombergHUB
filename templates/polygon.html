@@ -1,0 +1,382 @@
+{% extends "layout.html" %}
+{% set title = "On-Chain" %}
+{% set lead = "Polymarket menyelesaikan transaksinya di jaringan Polygon, dan jaringan itu masih bisa dibuka dari sini." %}
+
+{% block body %}
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Wallet scanner</h2>
+      <div class="sub">Saldo, jenis alamat, dan riwayat aktivitasnya</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body">
+    <div class="controls">
+      <div class="field" style="flex:1;min-width:300px">
+        <label for="w-addr">Wallet address</label>
+        <input id="w-addr" value="0xf418d3a1a941292f9c8707d62a14980c5beb95a3" spellcheck="false" style="font-family:var(--mono);font-size:13px">
+        <span class="help">alamat mana pun di jaringan Polygon</span>
+      </div>
+      <div class="field" style="width:200px">
+        <label for="w-deep">Depth</label>
+        <select id="w-deep">
+          <option value="0" selected>Balance only</option>
+          <option value="1">Balance and history</option>
+        </select>
+        <span class="help">riwayat butuh waktu lebih lama</span>
+      </div>
+      <button id="w-run" type="button">Scan</button>
+    </div>
+    <div id="w-out" style="margin-top:20px"></div>
+  </div>
+</section>
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Exchange contract</h2>
+        <div class="sub">Apakah kontrak ini masih memproses transaksi?</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body">
+      <div class="controls">
+        <div class="field" style="flex:1;min-width:200px">
+          <label for="x-addr">Contract</label>
+          <select id="x-addr">
+            <option value="0x4bFb41d5B3570DEfd03c39a9A4D8de6Bd8B8982e" selected>CTF Exchange</option>
+            <option value="0xC5d563A36AE78145C45a50134d48A1215220f80a">NegRisk CTF Exchange</option>
+          </select>
+          <span class="help">dua kontrak bursa yang dikenal</span>
+        </div>
+        <div class="field" style="width:130px">
+          <label for="x-blocks">Blocks</label>
+          <input id="x-blocks" type="number" value="200" step="50" min="10" max="5000">
+          <span class="help">ke belakang dari blok terbaru</span>
+        </div>
+        <button id="x-run" type="button">Check</button>
+      </div>
+      <div id="x-out" style="margin-top:16px"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Market activity</h2>
+        <div class="sub">Transaksi yang benar-benar terjadi, terbaca dari kontrak token</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body" id="s-out"></div>
+  </section>
+</div>
+
+<details class="explain">
+  <summary>Apa yang bisa dan tidak bisa dibaca di sini</summary>
+  <div class="inner">
+    <p><b>Bisa:</b> saldo dompet, kapan posisinya berubah, berapa besar, dan seberapa ramai
+    pasar secara keseluruhan. Semuanya terbaca langsung dari blockchain tanpa perlu membuka
+    situs Polymarket.</p>
+    <p><b>Tidak bisa:</b> menyebutkan nama pasarnya. Penghubung antara nomor token dan judul
+    pasar hanya ada di server Polymarket, dan server itu terblokir. Nomor token ditampilkan
+    apa adanya, bukan ditebak.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, load, clear, renderTable, icon, ICONS } = BH;
+
+const rupiahless = (n) => `$${Number(n).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function walletView(d, meta, target) {
+  const b = d.balance;
+  target.append(el('div', { class: 'row c4' },
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Total balance' }),
+      el('span', { class: 'value', style: b.total_usd > 0 ? '' : 'color:var(--critical)', text: rupiahless(b.total_usd) }),
+      el('span', { class: 'foot', text: 'gabungan kedua jenis USDC' })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'USDC.e' }),
+      el('span', { class: 'value sm', text: rupiahless(b['USDC.e']) })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'POL' }),
+      el('span', { class: 'value sm', text: b.POL.toFixed(4) }),
+      el('span', { class: 'foot', text: 'untuk biaya jaringan' })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Address type' }),
+      el('span', { class: 'value sm', text: d.contract.type.includes('Safe') ? 'Polymarket wallet' : d.contract.type }),
+      el('span', { class: 'foot', text: `${d.contract.bytecode_bytes} bytes of code` }))));
+
+  target.append(el('div', { class: `callout ${b.funded ? 'info' : 'bad'}`, style: 'margin-top:16px' },
+    el('span', { class: 'bar' }),
+    el('div', { class: 'body' }, el('b', { text: 'Verdict. ' }), document.createTextNode(d.verdict))));
+
+  const facts = el('dl', { class: 'facts', style: 'margin-top:18px' });
+  facts.append(el('dt', { text: 'Address' }), el('dd', { class: 'mono', text: b.address }));
+  facts.append(el('dt', { text: 'Note' }), el('dd', { text: d.contract.note }));
+  facts.append(el('dt', { text: 'Block' }), el('dd', { text: Number(d.block).toLocaleString('id-ID') }));
+  target.append(facts);
+
+  if (d.usdc) {
+    target.append(el('h3', { text: 'USDC flows', style: 'margin:22px 0 6px' }));
+    target.append(el('div', { class: 'muted', style: 'margin-bottom:10px',
+      text: `In ${rupiahless(d.usdc.total_in)} · out ${rupiahless(d.usdc.total_out)} · net ${rupiahless(d.usdc.net)}` }));
+    const box = el('div');
+    renderTable(box, d.usdc.flows, ['direction', 'block', 'usdc', 'counterparty'], {
+      name: 'usdc-flows', mono: ['counterparty'],
+      headers: { direction: 'Direction', block: 'Block', usdc: 'Amount', counterparty: 'Counterparty' },
+      emptyText: 'Tidak ada perpindahan dana pada rentang blok ini.',
+    });
+    target.append(box);
+  }
+  if (d.positions) {
+    target.append(el('h3', { text: 'Position changes', style: 'margin:22px 0 10px' }));
+    const box = el('div');
+    renderTable(box, d.positions.changes, ['direction', 'block', 'shares', 'token_id'], {
+      name: 'positions', mono: ['token_id'],
+      headers: { direction: 'Direction', block: 'Block', shares: 'Shares', token_id: 'Token id' },
+      emptyText: 'Tidak ada perubahan posisi pada rentang blok ini.',
+    });
+    target.append(box);
+  }
+}
+
+function exchangeView(d, meta, target) {
+  const aktif = d.order_fills > 0;
+  target.append(el('div', { class: 'row c2' },
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Order fills' }),
+      el('span', { class: 'value', style: `color:${aktif ? 'var(--good)' : 'var(--critical)'}`, text: String(d.order_fills) }),
+      el('span', { class: 'foot', text: `dari ${d.total_logs} catatan · ${d.blocks_scanned} blok` })),
+    el('div', { class: 'stat' },
+      el('span', { class: 'label', text: 'Status' }),
+      el('span', { class: 'value sm' },
+        el('span', { class: `chip ${aktif ? 'good' : 'critical'}` }, el('span', { class: 'led' }),
+          aktif ? 'Active' : 'No fills')),
+      el('span', { class: 'foot', text: d.label }))));
+
+  const rows = Object.entries(d.events).map(([nama, jumlah]) => ({ kejadian: nama, jumlah }));
+  const box = el('div', { style: 'margin-top:16px' });
+  renderTable(box, rows, ['kejadian', 'jumlah'], {
+    name: 'contract-events', sort: 'jumlah',
+    headers: { kejadian: 'Event', jumlah: 'Count' },
+    emptyText: 'Kontrak ini tidak mengeluarkan catatan apa pun pada rentang blok ini.',
+  });
+  target.append(box);
+
+  target.append(el('div', { class: `callout ${aktif ? 'info' : 'bad'}`, style: 'margin-top:16px' },
+    el('span', { class: 'bar' }),
+    el('div', { class: 'body', text: aktif
+      ? `Terdeteksi ${d.order_fills} transaksi terisi. Kontrak ini masih dipakai.`
+      : 'Tidak ada satu pun transaksi terisi. Catatan yang muncul bukan transaksi, melainkan pendaftaran token.' })));
+}
+
+const EVENT_LABELS = {
+  position_splits:     ['Positions opened',  'uang jadi posisi'],
+  position_merges:     ['Positions closed',  'posisi jadi uang'],
+  redemptions:         ['Redemptions',       'hasil dibayarkan'],
+  neg_risk_redemptions:['NegRisk redemptions','adapter terpisah'],
+  markets_resolved:    ['Markets resolved',  'hasil ditetapkan'],
+  markets_created:     ['Markets created',   'baru dibuka'],
+};
+
+const money = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString('id-ID',
+  { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const count = (v) => (v == null ? 'Tidak tersedia' : Number(v).toLocaleString('id-ID'));
+const clock = (iso) => (iso ? String(iso).replace('T', ' ').replace('+00:00', '') : '—');
+
+/* A market title next to a condition id. Unresolved ids stay raw: the
+   ConditionalTokens contract is shared, so a miss is an answer. */
+function marketLine(market, conditionId) {
+  if (!market) {
+    return el('span', { class: 'mono muted',
+      text: conditionId ? `${String(conditionId).slice(0, 18)}… (tidak dikenali Gamma)` : '—' });
+  }
+  const box = el('span', { class: 'fixture-cell' });
+  box.append(el('span', { class: 'lead', text: market.question || '—' }));
+  const bits = [];
+  if (market.leader) bits.push(`${market.leader} ${market.leader_pct}`);
+  if (market.closed) bits.push('pasar sudah tutup');
+  if (bits.length) box.append(el('span', { class: 'sub', text: bits.join(' · ') }));
+  if (market.url) box.append(el('a', { class: 'sub', href: market.url, target: '_blank', rel: 'noopener', text: 'buka pasar ↗' }));
+  return box;
+}
+
+function statsPanel(kind, stat) {
+  const facts = el('dl', { class: 'facts' });
+  const row = (k, v) => { if (v !== null && v !== undefined && v !== '') facts.append(el('dt', { text: k }), el('dd', { text: v })); };
+  row('Event pada rentang ini', count(stat.count));
+  row('Berhasil didekode', count(stat.decoded));
+  row('Wallet berbeda', stat.unique_wallets == null ? null : count(stat.unique_wallets));
+  row('Pasar berbeda', stat.unique_conditions == null ? null : count(stat.unique_conditions));
+  row('Event per menit', stat.per_minute == null ? null : String(stat.per_minute));
+  row('Total USDC', stat.usdc_total == null ? null : money(stat.usdc_total));
+  row('Terbesar', stat.usdc_largest == null ? null : money(stat.usdc_largest));
+  row('Median', stat.usdc_median == null ? null : money(stat.usdc_median));
+  row('Rata-rata', stat.usdc_mean == null ? null : money(stat.usdc_mean));
+  row('Terkecil', stat.usdc_smallest == null ? null : money(stat.usdc_smallest));
+  row('Blok', stat.first_block == null ? null : `${stat.first_block} – ${stat.last_block}`);
+  if (stat.with_usdc_amount != null && stat.decoded) {
+    row('Bernilai USDC yang dikenali', `${count(stat.with_usdc_amount)} dari ${count(stat.decoded)}`);
+  }
+  return facts;
+}
+
+function topMarkets(stat) {
+  const rows = (stat.top_conditions || []).filter((r) => r.market || r.usdc);
+  if (!rows.length) return null;
+  const box = el('div');
+  box.append(el('h4', { text: 'Pasar dengan nilai terbesar di rentang ini', style: 'margin:16px 0 8px' }));
+  const table = el('div');
+  BH.renderTable(table, rows.map((r) => ({
+    market: (r.market && r.market.question) || '(tidak dikenali)',
+    price: (r.market && r.market.leader_pct) || '—',
+    events: r.events,
+    usdc: r.usdc == null ? null : Number(r.usdc),
+    _raw: r,
+  })), ['market', 'price', 'events', 'usdc'], {
+    name: 'pasar-teratas', sort: 'usdc',
+    cells: { market: (row) => marketLine(row._raw.market, row._raw.condition_id) },
+    headers: { market: 'Pasar', price: 'Harga unggul sekarang', events: 'Event', usdc: 'USDC' },
+    emptyText: 'Tidak ada pasar yang bisa dinamai pada rentang ini.',
+  });
+  box.append(table);
+  return box;
+}
+
+function eventDetails(kind, rows, limit) {
+  const wrap = el('div');
+  wrap.append(el('h4', { text: `${rows.length} event terbaru (maks. ${limit})`, style: 'margin:16px 0 8px' }));
+  if (!rows.length) { wrap.append(el('p', { class: 'sub', text: 'Tidak ada event pada rentang ini.' })); return wrap; }
+  for (const row of rows) {
+    const item = el('details');
+    const amount = row.amount == null
+      ? (row.amount_raw ? `${row.amount_raw} unit mentah` : 'nilai tidak tersedia')
+      : `${row.amount} ${row.unit || ''}`.trim();
+    item.append(el('summary', { text: `${clock(row.time_utc) || 'waktu tidak tersedia'} · ${amount} · blok ${row.block}` }));
+    const inner = el('div', { class: 'inner' });
+    inner.append(el('div', { style: 'margin:6px 0 10px' }, marketLine(row.market, row.condition_id)));
+    const facts = el('dl', { class: 'facts' });
+    for (const [key, value] of Object.entries(row)) {
+      if (value == null || key === 'market' || key === 'topics' || key === 'raw_data') continue;
+      facts.append(el('dt', { text: key }),
+        el('dd', { text: typeof value === 'object' ? JSON.stringify(value) : String(value) }));
+    }
+    inner.append(facts);
+    inner.append(el('a', { href: row.url, target: '_blank', rel: 'noopener', text: 'Verifikasi transaksi di PolygonScan ↗' }));
+    item.append(inner);
+    wrap.append(item);
+  }
+  return wrap;
+}
+
+function marketView(d, meta, target) {
+  const s = d.summary || {};
+  const stats = d.stats || {};
+
+  /* Headline tiles now carry the money and the crowd behind each count, not
+     just the count. The count alone could not distinguish 400 five-dollar
+     splits from 400 five-thousand-dollar ones. */
+  const grid = el('div', { class: 'row c3' });
+  for (const [kind, [label, foot]] of Object.entries(EVENT_LABELS)) {
+    const value = s[kind];
+    if (value === undefined) continue;
+    const stat = stats[kind] || {};
+    const extra = [];
+    if (stat.usdc_total != null) extra.push(money(stat.usdc_total));
+    if (stat.unique_wallets != null) extra.push(`${stat.unique_wallets} wallet`);
+    grid.append(el('div', { class: 'stat' },
+      el('span', { class: 'label', text: label }),
+      el('span', { class: 'value sm', text: count(value) }),
+      el('span', { class: 'foot', text: extra.length ? extra.join(' · ') : foot })));
+  }
+  target.append(grid);
+
+  const w = d.window || {};
+  target.append(el('p', { class: 'sub', text:
+    `Blok ${d.from_block}–${d.to_block}`
+    + (w.from_time_utc ? ` · ${clock(w.from_time_utc)} s.d. ${clock(w.to_time_utc)} UTC` : '')
+    + (w.seconds != null ? ` · rentang ${w.seconds} detik` : '')
+    + ` · diambil ${clock(d.fetched_at)}` }));
+
+  const lookup = d.market_lookup || {};
+  if (lookup.asked) {
+    target.append(el('p', { class: 'sub',
+      text: `Judul pasar: ${lookup.resolved} dari ${lookup.asked} condition ID dikenali Gamma`
+        + (lookup.price_as_of ? ` · harga per ${clock(lookup.price_as_of)}` : '')
+        + (lookup.failed ? ` · pencarian gagal: ${lookup.failed}` : '') }));
+    if (lookup.note) target.append(el('p', { class: 'sub', text: lookup.note }));
+  }
+
+  target.append(el('p', { class: 'stale', text: d.caveat }));
+  if (d.incomplete?.length) {
+    target.append(el('p', { class: 'stale', text: 'Data tidak lengkap: ' + d.incomplete.join(', ') }));
+  }
+  target.append(el('p', { class: 'sub', text:
+    'Split/merge mengubah posisi bersyarat, bukan selalu uang masuk/keluar. Redemption '
+    + 'ConditionalTokens dan adapter NegRisk dipisahkan agar payout yang sama tidak dihitung dua kali. '
+    + 'Event penyelesaian tidak memuat harga eksekusi — harga yang ditampilkan adalah harga pasar '
+    + 'saat halaman ini dimuat.' }));
+
+  for (const [kind, rows] of Object.entries(d.details || {})) {
+    const [label] = EVENT_LABELS[kind] || [kind];
+    const stat = stats[kind] || {};
+    const detail = el('details', { class: 'explain', 'data-persist': kind });
+    const headline = stat.usdc_total != null
+      ? `${label} · ${count(stat.count)} event · ${money(stat.usdc_total)}`
+      : `${label} · ${count(stat.count)} event`;
+    detail.append(el('summary', { text: headline }));
+    const inner = el('div', { class: 'inner' });
+    inner.append(statsPanel(kind, stat));
+    const top = topMarkets(stat);
+    if (top) inner.append(top);
+    if (d.incomplete?.includes(kind)) {
+      inner.append(el('p', { class: 'stale', text: 'Pengambilan gagal untuk jenis event ini; angkanya bukan nol, melainkan tidak diketahui.' }));
+    }
+    inner.append(eventDetails(kind, rows, d.details_limit_per_event));
+    detail.append(inner);
+    target.append(detail);
+  }
+}
+
+function scanWallet() {
+  load(document.getElementById('w-out'), '/api/polygon/wallet', walletView, {
+    skeletonRows: 4,
+    fetch: {
+      method: 'POST',
+      body: {
+        address: document.getElementById('w-addr').value.trim(),
+        deep: document.getElementById('w-deep').value === '1',
+      },
+    },
+  });
+}
+
+function checkExchange() {
+  load(document.getElementById('x-out'), '/api/polygon/exchange', exchangeView, {
+    fetch: {
+      method: 'POST',
+      body: {
+        address: document.getElementById('x-addr').value,
+        blocks: parseInt(document.getElementById('x-blocks').value, 10),
+      },
+    },
+  });
+}
+
+document.getElementById('w-run').addEventListener('click', scanWallet);
+document.getElementById('x-run').addEventListener('click', checkExchange);
+
+scanWallet();
+checkExchange();
+load(document.getElementById('s-out'), '/api/polygon/settlement?blocks=60', marketView,
+  { skeletonRows: 6 });
+</script>
+{% endblock %}

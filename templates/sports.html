@@ -1,0 +1,261 @@
+{% extends "layout.html" %}
+{% set title = "Sports" %}
+{% set lead = "Data pertandingan dari sumber yang benar-benar bisa dibuka dari koneksi ini." %}
+
+{% block body %}
+{% set monitor_sector = "soccer" %}
+
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Soccer</h2>
+      <div class="sub">Expected goals dari Understat, jadwal dan hasil dari ESPN</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <select id="soccer-league" style="width:190px" aria-label="Pilih liga"></select>
+    <div class="tabs" id="soccer-tabs">
+      <button class="on" data-kind="understat" type="button">Expected goals</button>
+      <button data-kind="espn" type="button">Fixtures</button>
+    </div>
+  </header>
+  <div class="body-flush" id="soccer"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Match odds</h2>
+      <div class="sub">Pertandingan yang sedang dihargai Polymarket, disusun ulang jadi 1X2 · paling cepat selesai di atas</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <button class="quiet sm" type="button" id="refresh-fixtures">Refresh</button>
+  </header>
+  <div class="body-flush" id="fixtures"></div>
+</section>
+
+{% include "sector_monitor.html" %}
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow"><h2>NBA</h2><div class="sub">Data resmi dari NBA.com</div></div>
+      <span class="sub" data-meta></span>
+      <div class="tabs" id="nba-tabs">
+        <button class="on" data-src="/api/sports/nba/standings" type="button">Standings</button>
+        <button data-src="/api/sports/nba/leaders?stat=PTS" type="button">Scoring leaders</button>
+        <button data-src="/api/sports/nba/recent" type="button">Recent games</button>
+      </div>
+    </header>
+    <div class="body-flush" id="nba"></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow"><h2>NFL</h2><div class="sub">Jadwal, hasil, dan laporan cedera</div></div>
+      <span class="sub" data-meta></span>
+      <div class="tabs" id="nfl-tabs">
+        <button class="on" data-src="/api/sports/nfl/upcoming" type="button">Upcoming</button>
+        <button data-src="/api/sports/nfl/results" type="button">Results</button>
+        <button data-src="/api/sports/nfl/injuries" type="button">Injuries</button>
+      </div>
+    </header>
+    <div class="body-flush" id="nfl"></div>
+  </section>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Soccer provider status</h2>
+      <div class="sub">Tiga dari enam penyedia tidak bisa dibuka dari sini</div>
+    </div>
+  </header>
+  <div class="body-flush" id="providers"></div>
+</section>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>StatsBomb</h2>
+      <div class="sub">Data rinci setiap kejadian dalam pertandingan, gratis</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="statsbomb"></div>
+</section>
+
+<details class="explain">
+  <summary>Satu hal penting yang belum bisa dilakukan di sini</summary>
+  <div class="inner">
+    <p>Sebelum memakai model untuk bertaruh, sebaiknya diuji dulu melawan odds bandar: kalau
+    model Anda tidak bisa mengalahkan bandar, harga pasar prediksi juga tidak akan menolong.</p>
+    <p>Sayangnya situs penyedia arsip odds itu <b>ikut terblokir dari koneksi ini</b>, sama
+    seperti Polymarket. Yang tersisa cukup untuk membangun model, belum cukup untuk mengujinya
+    melawan bandar. Pengujian itu harus menunggu akses jaringan lain.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { el, api, loadTable, clear } = BH;
+
+const TONE = { live: ['good', 'Live'], blocked: ['critical', 'Blocked'], upstream_down: ['serious', 'Upstream down'] };
+
+api('/api/sports/soccer/providers').then((payload) => {
+  const host = document.getElementById('providers');
+  clear(host);
+  if (!payload.ok) { host.append(BH.errorState(payload.error)); return; }
+
+  const wrap = el('div', { class: 'tablewrap' });
+  const table = el('table');
+  const head = el('tr');
+  ['Status', 'Provider', 'Provides', 'Detail'].forEach((h) => head.append(el('th', { text: h })));
+  table.append(el('thead', {}, head));
+  const tbody = el('tbody');
+  for (const row of payload.data) {
+    const [tone, text] = TONE[row.status] || ['', row.status];
+    tbody.append(el('tr', {},
+      el('td', {}, el('span', { class: `chip ${tone}` }, el('span', { class: 'led' }), text)),
+      el('td', { class: 'strong', text: row.provider }),
+      el('td', { text: row.gives }),
+      el('td', { class: 'muted wrap', text: row.detail })));
+  }
+  table.append(tbody);
+  wrap.append(table);
+  host.append(wrap);
+});
+
+function tabs(groupId, hostId, options = {}) {
+  const group = document.getElementById(groupId);
+  const host = document.getElementById(hostId);
+  const go = (button) => {
+    group.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+    loadTable(host, button.dataset.src, { name: hostId, limit: 200, ...options });
+  };
+  group.addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (button) go(button);
+  });
+  go(group.querySelector('button.on'));
+}
+
+/* Sepak bola punya pemilih liga di samping tabnya, jadi alamatnya disusun dari
+   dua kendali sekaligus — bukan ditempel mati di tombolnya seperti tab lain. */
+const soccerTabs = document.getElementById('soccer-tabs');
+const soccerLeague = document.getElementById('soccer-league');
+
+function loadSoccer() {
+  const kind = soccerTabs.querySelector('button.on')?.dataset.kind || 'understat';
+  const league = soccerLeague.value;
+  const cols = kind === 'understat'
+    ? ['date', 'home_team', 'away_team', 'home_goals', 'away_goals', 'home_xg', 'away_xg']
+    : ['date', 'home_team', 'away_team'];
+  loadTable(document.getElementById('soccer'),
+    `/api/sports/soccer/${kind}?league=${encodeURIComponent(league)}`, {
+      name: `soccer-${kind}`, limit: 400, columns: cols, sort: 'date',
+      headers: {
+        date: 'Date', home_team: 'Home', away_team: 'Away',
+        home_goals: 'H goals', away_goals: 'A goals', home_xg: 'H xG', away_xg: 'A xG',
+      },
+      emptyText: 'Belum ada pertandingan untuk liga dan musim ini.',
+    });
+}
+
+soccerTabs.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button) return;
+  soccerTabs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+  loadSoccer();
+});
+soccerLeague.addEventListener('change', loadSoccer);
+
+api('/api/sports/soccer/leagues').then((payload) => {
+  const daftar = payload.ok ? payload.data.leagues : ['ENG-Premier League'];
+  const bawaan = payload.ok ? payload.data.default : daftar[0];
+  for (const liga of daftar) {
+    soccerLeague.append(el('option', { value: liga, text: liga, selected: liga === bawaan }));
+  }
+  loadSoccer();
+});
+
+tabs('nba-tabs', 'nba');
+tabs('nfl-tabs', 'nfl', { signed: ['result'] });
+
+/* Polymarket lists a football match as three separate Yes/No books — home win,
+   draw, away win. The server reassembles them into one 1X2 row; this draws it,
+   and shows the overround rather than hiding it, because three independent
+   books almost never sum to exactly 100%. */
+const pctWidth = (value) => `${Math.max(2, Math.min(100, Number(value) || 0))}%`;
+
+function fixtureCell(row) {
+  const r = row._raw;
+  const box = el('div', { class: 'fixture-cell' });
+  box.append(el('div', { class: 'lead', text: r.event_title || '' }));
+  const bar = el('div', { class: 'odds-bar' });
+  for (const o of r.outcomes || []) bar.append(el('i', { style: `width:${pctWidth(o.price * 100)}` }));
+  box.append(bar);
+  box.append(el('div', { class: 'sub',
+    text: (r.outcomes || []).map((o) => `${o.outcome} ${o.pct}`).join('  ·  ') }));
+  return box;
+}
+
+function edgeCell(row) {
+  const r = row._raw;
+  const box = el('div', { class: 'fixture-cell' });
+  box.append(el('div', { class: 'lead',
+    text: r.tied ? 'Seimbang' : `${r.favorite} ${r.favorite_pct}` }));
+  const bits = [];
+  if (r.margin_pp != null) bits.push(`unggul ${r.margin_pp.toFixed(1)} poin`);
+  if (!r.has_draw) bits.push('tanpa pasar seri');
+  if (r.overround_pct != null) bits.push(`overround ${r.overround_pct.toFixed(1)} poin`);
+  box.append(el('div', { class: 'sub', text: bits.join(' · ') }));
+  if (r.url) box.append(el('a', { class: 'sub', href: r.url, target: '_blank', rel: 'noopener', text: 'buka pasar ↗' }));
+  return box;
+}
+
+function loadFixtures() {
+  BH.load(document.getElementById('fixtures'), '/api/sports/soccer/fixtures?limit=200',
+    (data, meta, target) => {
+      const rows = (data.rows || []).map((r) => ({
+        end_date: BH.stampUTC(r.end_date),
+        fixture: r.event_title,
+        edge: r.tied ? 'Seimbang' : `${r.favorite} ${r.favorite_pct}`,
+        volume24h: r.volume24h != null ? Math.round(r.volume24h) : null,
+        liquidity: r.liquidity != null ? Math.round(r.liquidity) : null,
+        _raw: r,
+      }));
+      target.append(el('div', { class: 'live-head' },
+        el('span', { class: 'live-dot' }),
+        el('span', { class: 'live-label', text: `${rows.length} pertandingan berharga` })));
+      const table = el('div');
+      target.append(table);
+      BH.renderTable(table, rows, ['end_date', 'fixture', 'edge', 'volume24h', 'liquidity'], {
+        name: 'soccer-fixtures', limit: 200,
+        cells: { fixture: fixtureCell, edge: edgeCell },
+        headers: {
+          end_date: 'Selesai (UTC)', fixture: 'Pertandingan & 1X2',
+          edge: 'Condong ke', volume24h: 'Vol 24j', liquidity: 'Likuiditas',
+        },
+        emptyText: 'Tidak ada pertandingan sepak bola yang sedang dihargai Polymarket.',
+      });
+      target.append(el('p', { class: 'sub', text: data.note }));
+    }, { skeletonRows: 6 });
+}
+
+document.getElementById('refresh-fixtures').addEventListener('click', loadFixtures);
+loadFixtures();
+setInterval(() => { if (!document.hidden) loadFixtures(); }, 30000);
+
+loadTable(document.getElementById('statsbomb'), '/api/sports/statsbomb/competitions', {
+  name: 'statsbomb',
+  columns: ['competition_name', 'season_name', 'country_name', 'match_updated'],
+  headers: {
+    competition_name: 'Competition', season_name: 'Season',
+    country_name: 'Country', match_updated: 'Updated',
+  },
+});
+</script>
+{% endblock %}

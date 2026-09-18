@@ -1,0 +1,239 @@
+{% extends "layout.html" %}
+{% set title = "Esports" %}
+{% set lead = "Kategori paling mudah dikerjakan dari sini: dua sumber terbuka, tanpa perlu kunci API." %}
+
+{% block body %}
+{% set monitor_sector = "esports" %}
+
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Match schedule</h2>
+      <div class="sub">Waktu dalam UTC · tiap baris membawa indikasi form dan odds Polymarket · klik untuk riwayat penuh</div>
+    </div>
+    <span class="sub" data-meta></span>
+    <div class="tabs" id="game-tabs">
+      <button class="on" data-game="dota2" type="button"><img class="game-logo" src="/static/img/games/dota2.svg" alt="">Dota 2</button>
+      <button data-game="counterstrike" type="button"><img class="game-logo" src="/static/img/games/counterstrike.svg" alt="">CS2</button>
+      <button data-game="leagueoflegends" type="button"><img class="game-logo" src="/static/img/games/leagueoflegends.svg" alt="">LoL</button>
+      <button data-game="valorant" type="button"><img class="game-logo" src="/static/img/games/valorant.svg" alt="">Valorant</button>
+    </div>
+  </header>
+  <div class="body-flush" id="schedule"></div>
+  <div class="body" id="match-analysis" aria-live="polite"></div>
+</section>
+
+{% include "sector_monitor.html" %}
+
+<div class="row c2">
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Dota 2 team strength</h2>
+        <div class="sub">Minimal 20 pertandingan, diurutkan dari rating tertinggi</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body-flush" id="teams"></div>
+  </section>
+
+  <section class="card">
+    <header>
+      <div class="grow">
+        <h2>Most contested heroes</h2>
+        <div class="sub">Dihitung dari jumlah pick ditambah ban di pertandingan profesional</div>
+      </div>
+      <span class="sub" data-meta></span>
+    </header>
+    <div class="body-flush" id="heroes"></div>
+  </section>
+</div>
+
+<section class="card">
+  <header>
+    <div class="grow">
+      <h2>Recent pro matches</h2>
+      <div class="sub">Langsung dari OpenDota</div>
+    </div>
+    <span class="sub" data-meta></span>
+  </header>
+  <div class="body-flush" id="pro"></div>
+</section>
+
+<details class="explain">
+  <summary>Kenapa Counter-Strike ada di sini tanpa memakai HLTV</summary>
+  <div class="inner">
+    <p>Alat pengambil data HLTV yang paling populer sudah tidak diperbarui sejak Maret 2025.
+    Alat semacam itu bekerja dengan membaca susunan halaman web, dan kalau halamannya berubah
+    ia berhenti bekerja <i>tanpa memberi pesan error</i> — hanya mengembalikan daftar kosong.
+    Untuk sesuatu yang dipakai memutuskan uang, kegagalan diam seperti itu paling berbahaya.</p>
+    <p>Jadwal CS2 di atas diambil dari API resmi Liquipedia yang terbuka dan stabil. Yang belum
+    tersedia adalah statistik pemain CS2 — untuk itu memang perlu HLTV.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { loadTable } = BH;
+
+const group = document.getElementById('game-tabs');
+const host = document.getElementById('schedule');
+
+const el = BH.el;
+
+const pctWidth = (value) => `${Math.max(2, Math.min(100, Number(value) || 0))}%`;
+const usd = (value) => (value == null ? null : '$' + Math.round(value).toLocaleString('id-ID'));
+
+/* One cell holding both teams, the tournament, and the game's own mark. The
+   logo is the local monochrome file, so it reads in both themes. */
+function matchCell(row, game) {
+  const r = row._raw;
+  const box = el('div', { class: 'fixture-cell' });
+  box.append(el('div', { class: 'lead' },
+    el('img', { class: 'game-logo', src: `/static/img/games/${game}.svg`, alt: '' }),
+    `${r.team_a} vs ${r.team_b}`));
+  const bits = [r.tournament, r.format].filter(Boolean).join(' · ');
+  if (bits) box.append(el('div', { class: 'sub', text: bits }));
+  return box;
+}
+
+/* The market's own read: who it favours, by how much, and how heavily traded.
+   An unmatched fixture says so — it never borrows the nearest market's odds. */
+function oddsCell(row) {
+  const p = row._raw.poly || {};
+  if (!p.matched) {
+    return el('div', { class: 'fixture-cell' },
+      el('span', { class: 'no-market', text: 'tidak ada pasar yang cocok' }),
+      p.best_candidate ? el('span', { class: 'sub', text: `terdekat: ${p.best_candidate}` }) : null);
+  }
+  const box = el('div', { class: 'fixture-cell' });
+  box.append(el('div', { class: 'lead', text: p.tied ? 'Seimbang' : `${p.favorite} ${p.favorite_pct}` }));
+  const bar = el('div', { class: 'odds-bar' });
+  for (const o of p.outcomes || []) bar.append(el('i', { style: `width:${pctWidth(o.price * 100)}` }));
+  box.append(bar);
+  const bits = [];
+  if (p.margin_pp != null) bits.push(`unggul ${p.margin_pp.toFixed(1)} poin`);
+  if (p.volume24h != null) bits.push(`vol 24j ${usd(p.volume24h)}`);
+  bits.push(`cocok ${Math.round(p.confidence * 100)}%`);
+  box.append(el('div', { class: 'sub', text: bits.join(' · ') }));
+  if (p.url) box.append(el('a', { class: 'sub', href: p.url, target: '_blank', rel: 'noopener',
+    text: 'buka pasar ↗' }));
+  return box;
+}
+
+/* The form lean is a separate, deliberately weaker claim than the market's: an
+   Elo expectation from OpenDota ratings, shown only when both teams resolve. */
+function formCell(row) {
+  const f = row._raw.form || {};
+  if (!f.known) return el('span', { class: 'no-market', text: '—', title: f.reason || '' });
+  return el('div', { class: 'fixture-cell' },
+    el('span', { class: 'lead', text: `${f.favorite} ${f.favorite_pct}%` }),
+    el('span', { class: 'sub', text: `selisih rating ${f.rating_gap}` }));
+}
+
+/* Rows are flattened to strings for the table's own sort, filter and CSV, with
+   the full record kept on `_raw` for the cells that draw more than text. */
+function flatten(rows) {
+  return rows.map((r) => ({
+    starts_utc: BH.stampUTC(r.starts_utc),
+    match: `${r.team_a} vs ${r.team_b}`,
+    form: r.form?.known ? `${r.form.favorite} ${r.form.favorite_pct}%` : '',
+    poly: r.poly?.matched ? `${r.poly.tied ? 'Seimbang' : r.poly.favorite} ${r.poly.favorite_pct || ''}`.trim() : '',
+    volume24h: r.poly?.matched && r.poly.volume24h != null ? Math.round(r.poly.volume24h) : null,
+    analysis: '',
+    _raw: r,
+  }));
+}
+
+function loadGame(button) {
+  const game = button.dataset.game;
+  group.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === button));
+  BH.load(host, `/api/esports/board?game=${game}&limit=30`, (data, meta, target) => {
+    const s = data.summary || {};
+    target.append(el('div', { class: 'live-head' },
+      el('span', { class: 'live-dot' }),
+      el('span', { class: 'live-label',
+        text: `${s.fixtures || 0} pertandingan · ${s.matched || 0} punya pasar Polymarket, dari ${data.listed_markets || 0} pasar terdaftar` })));
+    for (const fail of data.failed || []) {
+      target.append(el('div', { class: 'stale', text: `${fail.source}: ${fail.reason}` }));
+    }
+
+    const table = el('div');
+    target.append(table);
+    BH.renderTable(table, flatten(data.rows || []),
+      ['starts_utc', 'match', 'form', 'poly', 'volume24h', 'analysis'], {
+        name: `jadwal-${game}`, limit: 60,
+        rowAttrs: (row) => ({ 'data-team-a': row._raw.team_a, 'data-team-b': row._raw.team_b }),
+        cells: {
+          match: (row) => matchCell(row, game),
+          form: formCell,
+          poly: oddsCell,
+          analysis: (row) => el('button', { type: 'button', class: 'quiet sm', text: 'Analisis',
+            onclick: (e) => { e.stopPropagation(); analyzeMatch(row._raw.team_a, row._raw.team_b); } }),
+        },
+        headers: {
+          starts_utc: 'Starts (UTC)', match: 'Match', form: 'Model lean',
+          poly: 'Polymarket', volume24h: 'Vol 24j', analysis: ' ',
+        },
+        emptyText: 'Belum ada pertandingan terjadwal untuk game ini.',
+      });
+    target.append(el('p', { class: 'sub', text: data.note }));
+    if (s.note) target.append(el('p', { class: 'sub', text: s.note }));
+  }, { skeletonRows: 6 });
+}
+
+group.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (button) loadGame(button);
+});
+loadGame(group.querySelector('button.on'));
+
+/* The row click used to read team names out of fixed column positions. The
+   match is one cell now, so the names ride on the row itself instead. */
+host.addEventListener('click', (e) => {
+  if (e.target.closest('a, button, input')) return;
+  const row = e.target.closest('tbody tr');
+  const a = row?.getAttribute('data-team-a');
+  const b = row?.getAttribute('data-team-b');
+  if (a && b) analyzeMatch(a, b);
+});
+function analyzeMatch(a,b) {
+  const game = group.querySelector('button.on').dataset.game;
+  const query = `${a} ${b}`;
+  BH.toast('Pasar di panel atas adalah kandidat pencarian; cocokkan kedua tim, tanggal, turnamen, dan aturan sebelum memakai odds.');
+  document.querySelector('[data-sector-monitor]').dispatchEvent(new CustomEvent('monitor-query', {detail:query}));
+  BH.load(document.getElementById('match-analysis'), `/api/esports/analysis?game=${game}&a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`, (data, meta, target) => {
+    target.append(BH.el('h3', {text:`${a} vs ${b}`}), BH.el('p', {text:data.note}),
+      BH.el('p', {text:data.favorite ? `Indikasi form lebih kuat: ${data.favorite}` : 'Belum ada favorit historis yang dapat ditentukan.'}));
+    for (const team of data.teams || []) {
+      target.append(BH.el('h3', {text:team.team}),BH.el('p', {text:`${team.wins} menang / ${team.losses} kalah · ${team.sample} game · win rate ${team.win_rate_pct ?? '—'}% · rating ${team.rating ?? '—'}`}));
+      const table = BH.el('div'); target.append(table);
+      BH.renderTable(table,team.matches,['time_utc','opponent','won','url']);
+    }
+  });
+}
+
+loadTable(document.getElementById('teams'), '/api/esports/dota/teams?top=30', {
+  name: 'tim-dota', sort: 'rating',
+  columns: ['team', 'rating', 'wins', 'losses', 'win_rate_pct'],
+  headers: { team: 'Team', rating: 'Rating', wins: 'Wins', losses: 'Losses', win_rate_pct: 'Win rate' },
+});
+
+loadTable(document.getElementById('heroes'), '/api/esports/dota/heroes?top=30', {
+  name: 'hero-dota', sort: 'contest_rate',
+  columns: ['hero', 'contest_rate', 'pro_pick', 'pro_ban', 'win_rate_pct'],
+  headers: { hero: 'Hero', contest_rate: 'Contested', pro_pick: 'Picks', pro_ban: 'Bans', win_rate_pct: 'Win rate' },
+});
+
+loadTable(document.getElementById('pro'), '/api/esports/dota/pro?limit=40', {
+  name: 'pertandingan-pro',
+  headers: {
+    match_id: 'Match id', league_name: 'League', radiant_name: 'Radiant',
+    dire_name: 'Dire', radiant_win: 'Radiant won', duration: 'Duration (s)', start_time: 'Started',
+  },
+});
+</script>
+{% endblock %}
