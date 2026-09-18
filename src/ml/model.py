@@ -95,8 +95,17 @@ def _sigmoid(z):
 
 try:
     from sklearn.base import BaseEstimator, ClassifierMixin
-except ImportError:  # pragma: no cover — scikit-learn is in requirements.txt
-    BaseEstimator = ClassifierMixin = object
+except ImportError:
+    # Tanpa scikit-learn kelas ini tidak pernah dipakai, tetapi definisinya tetap
+    # dieksekusi saat modul diimpor — dan `AnchoredLogit(object, object)` adalah
+    # TypeError: duplicate base class. Dua kelas kosong yang berbeda menjaga
+    # `import src.ml.model` tetap berhasil, sehingga daftar tenggat dan laporan
+    # model masih bisa dilayani di pemasangan ramping (mis. Vercel).
+    class BaseEstimator:  # type: ignore[no-redef]
+        pass
+
+    class ClassifierMixin:  # type: ignore[no-redef]
+        pass
 
 
 class AnchoredLogit(ClassifierMixin, BaseEstimator):
@@ -637,8 +646,9 @@ def _drivers(bundle: dict, feats: dict) -> list[dict]:
 
 def predict_market(snapshot: dict, now_ms: int | None = None) -> dict:
     """Model probability for the first outcome of a live market snapshot."""
-    import numpy as np
-
+    # numpy diimpor setelah semua jalan keluar "tidak ada prediksi": daftar
+    # tenggat tetap tampil (harga, arah, EV) di pemasangan tanpa numpy/sklearn,
+    # dengan kolom model berisi alasannya.
     bundle = load()
     if not bundle:
         return {"available": False,
@@ -656,6 +666,8 @@ def predict_market(snapshot: dict, now_ms: int | None = None) -> dict:
         return {"available": False, "days_left": round(live["days_left"], 2),
                 "reason": (f"Model dilatih untuk tenggat ≤ {limit:g} hari; pasar ini masih "
                            f"{live['days_left']:.0f} hari lagi. Di luar rentang itu model hanya menebak.")}
+
+    import numpy as np
 
     X = np.array([[live["features"][f] for f in bundle["features"]]], dtype=float)
     prob = float(bundle["estimator"].predict_proba(X)[0, 1])

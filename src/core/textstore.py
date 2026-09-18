@@ -21,8 +21,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+import config
+
 _LOCK = threading.RLock()
-_ROOT = Path(__file__).resolve().parent.parent.parent / "data" / "news"
+_ROOT = Path(config.DATA_DIR) / "news"
 
 MAX_LINES = 4000          # batas baris per berkas jsonl sebelum dipangkas
 MAX_SNAPSHOT_BYTES = 600_000

@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+import config
 from src.core import cache
 from src.core.errors import BadRequest, NetworkBlocked, RateLimited, UpstreamError
 from src.datahub.catalog import BY_CODE, CATEGORIES, DATA_SOURCES, PROBED_AT, DataSource, for_page
@@ -33,7 +34,7 @@ TIMEOUT = 15
 MAX_WORKERS = 8          # sama dengan berita: lebih banyak sambungan HTTPS serentak justru memperlambat
 API_CANDIDATES = 64      # dicoba pada PROBED_AT; lihat docstring catalog.py
 
-STATUS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "datahub"
+STATUS_DIR = Path(config.DATA_DIR) / "datahub"
 STATUS_FILE = STATUS_DIR / "status.json"
 _STATUS_LOCK = threading.Lock()
 

@@ -1,0 +1,18 @@
+# Dependencies untuk deploy Vercel — sengaja jauh lebih ramping dari
+# requirements.txt di akar.
+#
+# Batas satu fungsi serverless adalah 250 MB setelah dibuka. Diukur dari roda
+# manylinux untuk Python 3.12: scipy 118 MB + numpy 58 MB + scikit-learn 33 MB
+# = 209 MB sebelum berkas .pyc dan kode aplikasi, jadi scikit-learn tidak muat
+# dengan aman. pandas, polars, web3, dan pustaka olahraga juga ditinggal karena
+# alasan yang sama.
+#
+# Yang tetap jalan: seluruh halaman, katalog sumber, Polymarket Gamma/CLOB
+# (jaringan Vercel tidak memblokirnya), Limitless, Manifold, sektor, berita,
+# EV/IEV, dan 36 API Data Hub.
+#
+# Yang menjawab MISSING_DEP (424) beserta nama paketnya: model tenggat, paper
+# test, analisis berita TF-IDF, on-chain Polygon, dan halaman olahraga.
+flask>=3.0
+requests>=2.31
+python-dotenv>=1.0

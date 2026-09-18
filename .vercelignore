@@ -1,0 +1,27 @@
+# Yang tidak ikut diunggah ke Vercel. Berkas ini menggantikan .gitignore saat
+# Vercel menyiapkan unggahan, jadi semua yang rahasia harus disebut lagi di sini.
+
+# Rahasia. Nilainya diisi lewat Environment Variables di dasbor Vercel.
+.env
+.env.local
+.env.*.local
+
+# 357 MB simpanan yang dibuat sendiri oleh aplikasi: cache API, riwayat harga,
+# dataset dan model ML, buku besar paper test, korpus berita, repo yang diunduh.
+# Semuanya bisa dibangun ulang dan tidak bisa ditulis di Vercel.
+data/
+artifacts/
+
+# Tidak dipakai saat melayani permintaan.
+docs/
+tests/
+run.py
+.git/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Dependencies lengkap untuk pemasangan lokal. Vercel memakai
+# api/requirements.txt; tanda "/" di depan menahannya agar tidak ikut cocok.
+/requirements.txt

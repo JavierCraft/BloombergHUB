@@ -22,10 +22,14 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+import config
+
 _LOCK = threading.RLock()
 _MEM: dict[str, tuple[float, Any]] = {}
 
-_DISK_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "cache"
+# Lewat config, bukan jalur tetap: BH_DATA_DIR memindahkan seluruh isi data/
+# ke tempat yang bisa ditulis (mis. /tmp pada hosting tanpa-server).
+_DISK_DIR = Path(config.CACHE_DIR)
 
 
 def _key(namespace: str, payload: Any) -> str:

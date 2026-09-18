@@ -326,16 +326,20 @@ def check_all(deep: bool = True, ttl: int = HEALTH_TTL, force: bool = False) -> 
     return payload
 
 
-def guard(source_id: str) -> Source:
+def guard(source_id: str, needs_module: bool = True) -> Source:
     """Raise the specific, actionable error before a data call is attempted.
 
     This turns a 30-second hang into an instant, explained refusal.
+
+    `needs_module=False` untuk panggilan yang memakai nama sumber ini tetapi
+    tidak menyentuh paketnya — mis. daftar tenggat hanya menggabungkan harga
+    pasar dan EV, jadi ia tetap berguna di pemasangan tanpa scikit-learn.
     """
     from .errors import MissingCredential, MissingDependency, NetworkBlocked
 
     src = registry.assert_readonly(source_id)
 
-    if src.module and not _has_module(src.module):
+    if needs_module and src.module and not _has_module(src.module):
         raise MissingDependency(src.pip, src.module)
 
     missing = _missing_secrets(src)

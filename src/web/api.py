@@ -41,10 +41,11 @@ def serve(
     ttl: int | None = None,
     tabular: bool = True,
     note: str = "",
+    needs_module: bool = True,
 ):
     """Run `producer`, wrap the result, and never leak an unexplained traceback."""
     try:
-        src = health.guard(source_id) if source_id in registry.BY_ID else None
+        src = health.guard(source_id, needs_module) if source_id in registry.BY_ID else None
         effective_ttl = ttl if ttl is not None else (src.ttl if src else config.CACHE_TTL)
 
         with_timer = Meta(source=source_id, notes=[note] if note else [])
@@ -1254,10 +1255,11 @@ def api_deadlines():
         if sector not in deadlines.SECTORS:
             return fail(BadRequest("Sektor tidak dikenal.", hint="Pilihan: " + ", ".join(deadlines.SECTORS)), "ml")
         return serve("ml", ("sector-deadlines", sector, days, limit),
-                     lambda: deadlines.sector_deadlines(sector, days, limit), tabular=False, ttl=180)
+                     lambda: deadlines.sector_deadlines(sector, days, limit), tabular=False, ttl=180,
+                     needs_module=False)
     return serve("ml", ("deadlines", days, source, query, sports, limit),
                  lambda: deadlines.collect(days, _SOURCE_SETS[source], limit, query, sports),
-                 tabular=False, ttl=120)
+                 tabular=False, ttl=120, needs_module=False)
 
 
 @bp.get("/ml/status")
@@ -1281,7 +1283,8 @@ def api_ml_status():
 def api_ml_report():
     from src.ml import model
 
-    return serve("ml", "report", lambda: model.report() or {"trained": False}, tabular=False, ttl=0)
+    return serve("ml", "report", lambda: model.report() or {"trained": False}, tabular=False, ttl=0,
+                 needs_module=False)
 
 
 def _train_summary(report: dict) -> dict:

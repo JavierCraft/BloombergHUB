@@ -7,12 +7,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR / "data"
+# Semua yang ditulis aplikasi ada di bawah satu folder. Hosting tanpa-server
+# (Vercel) memberi sistem berkas hanya-baca kecuali /tmp, jadi foldernya harus
+# bisa dipindah — dan pembuatannya tidak boleh menggagalkan impor.
+DATA_DIR = Path(os.getenv("BH_DATA_DIR") or (BASE_DIR / "data"))
 REPOS_DIR = DATA_DIR / "repos"
 CACHE_DIR = DATA_DIR / "cache"
 
+
+def _ensure(folder: Path) -> None:
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # Sistem berkas hanya-baca: cache tetap bekerja di memori dan setiap
+        # penulis ke disk sudah menangani kegagalannya sendiri.
+        pass
+
+
 for _folder in (DATA_DIR, REPOS_DIR, CACHE_DIR):
-    _folder.mkdir(parents=True, exist_ok=True)
+    _ensure(_folder)
 
 
 def _flag(name: str, default: bool = False) -> bool:
@@ -64,7 +77,7 @@ CACHE_TTL = int(os.getenv("BH_CACHE_TTL", "900"))
 
 # --- Machine learning & paper test -----------------------------------------
 ML_DIR = DATA_DIR / "ml"
-ML_DIR.mkdir(parents=True, exist_ok=True)
+_ensure(ML_DIR)
 
 
 def _float(name: str, default: float) -> float:

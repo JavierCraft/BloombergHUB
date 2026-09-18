@@ -30,10 +30,16 @@ python run.py paper --scan                      # paper test: settle, prediksi, 
   Template Jinja di-cache tanpa `BH_DEBUG=1`, jadi server harus dijalankan ulang setelah mengubahnya.
 - Penjadwal paper test (`scheduler.start`) dan pemanasan cache (`src/web/warmup.py`) hanya
   dijalankan dari `app.py` `__main__`, bukan dari `create_app()`, supaya uji tidak memicu scan.
+- **Deploy Vercel** (`api/index.py`, `vercel.json`, `.vercelignore`, `docs/DEPLOY_VERCEL.md`):
+  satu fungsi serverless, `BH_DATA_DIR=/tmp/...`, dan hanya `flask`+`requests`+`python-dotenv`
+  (`api/requirements.txt`) karena scipy+numpy+sklearn saja sudah 209,6 MB dari batas 250 MB.
+  Karena itu **impor paket berat harus tetap di dalam fungsi**, tidak pernah di tingkat modul;
+  `tests/test_deploy_slim.py` memblokir paket-paket itu dan memeriksa ke-13 halaman tetap 200.
 
 ## Prinsip yang tidak boleh dilanggar
 
 1. **Status adalah hasil probe, bukan asumsi.** Sumber yang tidak menjawab dilaporkan apa adanya.
+   Paket yang tidak terpasang juga: `MISSING_DEP` (424) dengan nama paketnya, bukan 500 atau nol.
 2. **Tidak diketahui ≠ nol.** Harga, volume, atau perubahan yang tidak dikirim sumber tampil
    sebagai "—"/None, tidak pernah 0. Awas nilai falsy: cek `is None`, bukan `if not x`.
 3. **Jangan menebak label.** Pencocokan nama/ID yang ragu dibiarkan kosong beserta alasannya.
