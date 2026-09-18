@@ -12,11 +12,14 @@ adalah cara membaca Polymarket tanpa VPN.
 
 ## Yang ikut diunggah, dan yang tidak
 
-`data/` berisi 357 MB simpanan yang dibuat sendiri oleh aplikasi — cache API,
+`data/` berisi 360,6 MB simpanan yang dibuat sendiri oleh aplikasi — cache API,
 riwayat harga pasar, dataset dan model ML, buku besar paper test, korpus berita,
 dan repo yang diunduh. Semuanya bisa dibangun ulang dan tidak ada gunanya di
 sistem berkas hanya-baca, jadi `.vercelignore` menahannya bersama `artifacts/`,
-`docs/`, `tests/`, dan `.env`. Yang tersisa untuk diunggah sekitar 2,5 MB.
+`docs/`, `tests/`, dan `.env`.
+
+Yang tersisa untuk diunggah: **90 berkas, 1,04 MB** — `src/` 0,65 MB,
+`templates/` 0,20 MB, `static/` 0,16 MB, sisanya berkas akar dan `api/`.
 
 ## Batas 250 MB, dan akibatnya
 
