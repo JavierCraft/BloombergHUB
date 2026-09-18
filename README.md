@@ -13,6 +13,56 @@ IEP/IEV, dan model machine learning yang sama; sumber setiap pasar selalu dituli
 kurs, data resmi AS dan Indonesia, jadwal olahraga, gempa, peluncuran roket), dan 25 integrasi.
 Semuanya — dengan status dan kegunaannya — ada di halaman **Sources**.
 
+> **Catatan untuk yang membuka lewat GitHub Pages:** halaman ini hanya README. Bloomberg Hub adalah
+> aplikasi **Flask** — halamannya dirakit di server, mengambil data langsung dari puluhan API, dan
+> menjalankan model machine learning. GitHub Pages hanya menyajikan berkas statis, jadi aplikasinya
+> tidak bisa berjalan di sana. Jalankan sendiri dengan `python app.py`, lalu buka `127.0.0.1:5000`.
+> Tangkapan layar di bawah ini diambil dari aplikasi yang sedang berjalan.
+
+## Tampilan
+
+**Overview** — status model ML dan paper test, pasar bertenggat ≤ 3 hari beserta peluang model dan EV,
+harga kripto/emas/kurs, cerita berita teratas, dan kondisi semua sumber.
+
+![Overview](docs/screenshots/overview.png)
+
+**Kartu machine learning di setiap sektor** — pasar sektor itu yang berakhir dalam 14 hari, arah
+(naik/turun) menurut model, EV model terbaik, dan sumber tiap pasar (Limitless USDC atau Manifold).
+
+![Machine learning per sektor](docs/screenshots/sector-ml.png)
+
+**Paper test** — win rate di samping break-even, ROI, Brier model lawan harga pasar, kalibrasi, dan
+kurva ekuitas. Semua prediksi dicatat sebelum hasilnya diketahui, lalu dicocokkan saat pasar selesai.
+
+![Paper test](docs/screenshots/paper-test.png)
+
+<details>
+<summary>Tangkapan layar lainnya: detail pasar, deadline radar, sumber, data publik, tampilan ponsel</summary>
+
+**Detail satu pasar** — EV per outcome di harga ask, peluang model dan rekam jejaknya, IEP/IEV dari
+buku pesanan, analisis berita, dan tombol paper trade.
+
+![Detail pasar](docs/screenshots/market-detail.png)
+
+**Deadline radar** — semua pasar dengan tenggat terdekat dari Polymarket, Limitless, dan Manifold.
+
+![Deadlines](docs/screenshots/deadlines.png)
+
+**Sources** — 219 sumber dalam satu tabel: feed berita, API data publik, dan integrasi, dengan status
+hasil pengecekan dan catatan kegunaannya.
+
+![Sources](docs/screenshots/sources.png)
+
+**Public data** — 36 API data publik, tampil di halaman yang memakainya.
+
+![Data publik](docs/screenshots/public-data.png)
+
+**Lebar ponsel** — setiap halaman diuji pada lebar 414 px; tabel menggulir sendiri, halaman tidak.
+
+<img src="docs/screenshots/mobile.png" alt="Tampilan ponsel" width="320">
+
+</details>
+
 ## Jalankan
 
 ```bash
